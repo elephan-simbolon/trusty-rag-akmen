@@ -12,22 +12,28 @@ Mempercepat proses pencarian referensi dan penyusunan jawaban akuntansi dari 45-
 
 ### Validated
 
-(None yet — ship to validate)
+Validated in Phase 01 (Foundation):
+
+- [x] PDF parsing pipeline — MinerU (primer) + Docling (sekunder) di GPU lokal GTX 1660 Ti 6 GB, menangani tabel, rumus LaTeX, dan diagram
+- [x] Hybrid chunking 7 langkah — structure-aware + content-type specific + late chunking + parent-child hierarchy + metadata enrichment
+- [x] Cross-lingual tanpa translasi — query bahasa Indonesia langsung di-retrieve terhadap textbook berbahasa Inggris via Qwen3-Embedding-8B multilingual
+- [x] Source citation wajib — setiap response harus menyertakan referensi: nama buku, chapter, halaman
+- [x] Chat UI sederhana — Streamlit interface untuk input query dan menampilkan response dengan citations (dark theme, bilingual copywriting)
+
+### Validated
+
+Validated in Phase 02 (Knowledge Graph):
+
+- [x] Knowledge graph — LightRAG untuk entity/relationship extraction dan graph-based retrieval (local/naive/hybrid/mix modes). Validated in Phase 02: knowledge-graph
+- [x] Perbandingan konsep lintas textbook — membandingkan metode costing (job order vs process vs ABC), pendekatan (absorption vs variable), dan teknik manajemen, menyintesis pandangan dari multiple textbook via SYSTEM_PROMPT_SYNTHESIS. Validated in Phase 02: knowledge-graph
+- [x] Cross-reference textbook — menyajikan pandangan dari beberapa textbook untuk satu topik, mengidentifikasi konsensus dan perbedaan pendekatan antarpenulis via per-author attribution prompting. Validated in Phase 02: knowledge-graph
 
 ### Active
 
 - [ ] Tanya jawab akuntansi cerdas — menjawab pertanyaan konseptual (definisi, penjelasan, prosedur) dengan referensi ke textbook sumber (nama buku, chapter, halaman), dalam bahasa Indonesia dengan istilah teknis Inggris dalam tanda kurung
 - [ ] Kalkulasi otomatis — menghitung break-even point, variance analysis (material, labor, overhead), overhead allocation rate, contribution margin, ROI, residual income, dengan langkah perhitungan detail
-- [ ] Perbandingan konsep lintas textbook — membandingkan metode costing (job order vs process vs ABC), pendekatan (absorption vs variable), dan teknik manajemen, menyintesis pandangan dari multiple textbook (Horngren, Garrison, Hansen & Mowen, dll)
-- [ ] Cross-reference textbook — menyajikan pandangan dari beberapa textbook untuk satu topik, mengidentifikasi konsensus dan perbedaan pendekatan antarpenulis
-- [ ] Source citation wajib — setiap response harus menyertakan referensi: nama buku, chapter, halaman
-- [ ] Cross-lingual tanpa translasi — query bahasa Indonesia langsung di-retrieve terhadap textbook berbahasa Inggris via Qwen3-Embedding-8B multilingual
 - [ ] CRAG quality gate — setiap retrieval dievaluasi relevansinya (CORRECT/AMBIGUOUS/INCORRECT) dengan auto-reformulation jika di bawah threshold
 - [ ] Adaptive complexity routing — query diklasifikasi ke 4 level (Simple/Medium/Complex/Calculation) untuk efisiensi API call (2-5 call per query)
-- [ ] PDF parsing pipeline — MinerU (primer) + Docling (sekunder) di GPU lokal GTX 1660 Ti 6 GB, menangani tabel, rumus LaTeX, dan diagram
-- [ ] Hybrid chunking 7 langkah — structure-aware + content-type specific + late chunking + parent-child hierarchy + metadata enrichment
-- [ ] Knowledge graph — LightRAG untuk entity/relationship extraction dan graph-based retrieval (local/naive/hybrid/mix modes)
-- [ ] Chat UI sederhana — Streamlit/Chainlit interface untuk input query dan menampilkan response dengan citations
 
 ### Out of Scope
 
@@ -129,4 +135,9 @@ trusty-rag-akmen/
 | cu126 PyTorch wheels, bukan cu128 | GTX 1660 Ti CC 7.5 adalah batas minimum cu128 — cu126 memberikan safety margin untuk longevity | — Pending |
 
 ---
-*Last updated: 2026-03-22 after initialization*
+## Current State
+
+Phase 02 (Knowledge Graph) complete — 2026-03-22. LightRAG knowledge graph terintegrasi dengan LangGraph pipeline — graph_retrieve_node, multi-textbook synthesis via SYSTEM_PROMPT_SYNTHESIS, dan per-author attribution. Siap untuk Phase 03 (Agentic Orchestration dengan LangGraph + CRAG).
+
+---
+*Last updated: 2026-03-22 after Phase 02 completion*

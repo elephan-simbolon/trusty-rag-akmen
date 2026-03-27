@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "Bash(uv run python -c \":*)",
+      "Bash(uv pip:*)",
+      "Bash(uv sync:*)",
+      "Bash(uv run:*)",
+      "mcp__plugin_context7_context7__query-docs",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:neo4j.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:www.firecrawl.dev)"
+    ]
+  }
+}
