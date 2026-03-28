@@ -5,7 +5,7 @@ import './index.css'
 
 if (!localStorage.getItem('theme')) localStorage.setItem('theme', 'dark');
 
-if (!import.meta.env.VITE_API_BASE_URL) {
+if (import.meta.env.DEV && !import.meta.env.VITE_API_BASE_URL) {
   console.error('VITE_API_BASE_URL is not set. Copy .env.local.example to .env.local and configure it.');
 }
 

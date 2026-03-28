@@ -65,7 +65,7 @@ def test_conversation_history_accumulates_across_invocations():
 
     # Turn 1
     result1 = graph.invoke(
-        {"query": "Apa itu biaya tetap?", "conversation_history": []},
+        {"query": "Apa itu biaya tetap?"},
         config=thread_config,
     )
     history_after_turn1 = result1.get("conversation_history", [])
@@ -75,7 +75,7 @@ def test_conversation_history_accumulates_across_invocations():
 
     # Turn 2 — same thread_id, MemorySaver accumulates
     result2 = graph.invoke(
-        {"query": "Apa itu biaya variabel?", "conversation_history": []},
+        {"query": "Apa itu biaya variabel?"},
         config=thread_config,
     )
     history_after_turn2 = result2.get("conversation_history", [])
@@ -98,7 +98,7 @@ def test_conversation_history_grows_with_each_turn():
     prev_length = 0
     for i, query in enumerate(queries):
         result = graph.invoke(
-            {"query": query, "conversation_history": []},
+            {"query": query},
             config=thread_config,
         )
         current_length = len(result.get("conversation_history", []))
@@ -116,7 +116,7 @@ def test_conversation_history_contains_correct_roles():
     thread_config = {"configurable": {"thread_id": "session-roles-test"}}
 
     result = graph.invoke(
-        {"query": "Apa itu contribution margin?", "conversation_history": []},
+        {"query": "Apa itu contribution margin?"},
         config=thread_config,
     )
     history = result.get("conversation_history", [])
@@ -140,17 +140,17 @@ def test_different_thread_ids_have_isolated_histories():
 
     # Thread A: 2 turns
     graph.invoke(
-        {"query": "Pertanyaan sesi A turn 1", "conversation_history": []},
+        {"query": "Pertanyaan sesi A turn 1"},
         config=config_a,
     )
     result_a = graph.invoke(
-        {"query": "Pertanyaan sesi A turn 2", "conversation_history": []},
+        {"query": "Pertanyaan sesi A turn 2"},
         config=config_a,
     )
 
     # Thread B: only 1 turn
     result_b = graph.invoke(
-        {"query": "Pertanyaan sesi B turn 1", "conversation_history": []},
+        {"query": "Pertanyaan sesi B turn 1"},
         config=config_b,
     )
 
@@ -177,7 +177,7 @@ def test_new_thread_starts_with_empty_history():
     config = {"configurable": {"thread_id": unique_thread}}
 
     result = graph.invoke(
-        {"query": "Pertanyaan pertama", "conversation_history": []},
+        {"query": "Pertanyaan pertama"},
         config=config,
     )
     history = result.get("conversation_history", [])

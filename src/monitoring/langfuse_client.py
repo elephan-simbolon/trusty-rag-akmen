@@ -19,18 +19,15 @@ from config.settings import settings
 logger = logging.getLogger(__name__)
 
 
-def get_langfuse_handler(
-    session_id: str = "",
-    user_id: str = "consultant",
-):
+def get_langfuse_handler():
     """Return a Langfuse CallbackHandler for one query session, or None if disabled.
 
     Creates a new CallbackHandler instance per call (not a module-level singleton)
-    to prevent trace bleed between Streamlit reruns (Pitfall 7).
+    to prevent trace bleed between query sessions (Pitfall 7).
 
-    Args:
-        session_id: Optional session identifier for trace grouping.
-        user_id: Optional user identifier for Langfuse user analytics.
+    Session and user attribution are passed via metadata in graph.ainvoke() config
+    (Langfuse v4 pattern: metadata["langfuse_session_id"] / metadata["langfuse_user_id"]),
+    not via CallbackHandler constructor args.
 
     Returns:
         CallbackHandler instance if Langfuse is enabled and keys are present.

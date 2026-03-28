@@ -94,15 +94,7 @@ def generate_response(
         response_text = llm_result
     citations = build_citations(context_docs)
 
-    # Append citation block to response
-    if citations:
-        citation_lines = [f"- {c['formatted']}" for c in citations]
-        citation_block = "\n\n**Sumber Referensi:**\n" + "\n".join(citation_lines)
-        full_response = response_text + citation_block
-    else:
-        full_response = response_text
-
     return {
-        "response": full_response,
+        "response": response_text,
         "citations": citations,
     }

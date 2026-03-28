@@ -14,7 +14,8 @@ Strategy (priority order):
 Used by graph_ingestion.py post-extraction to clean up entity names before
 they are written into the LightRAG nano-vectordb storage.
 """
-from config.glossary import GLOSSARY, GLOSSARY_REVERSE  # noqa: F401 — re-exported
+
+from config.glossary import GLOSSARY_REVERSE
 
 ACCOUNTING_CANONICAL: dict[str, str] = {
     "ABC Costing": "Activity-Based Costing",

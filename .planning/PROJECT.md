@@ -137,7 +137,11 @@ trusty-rag-akmen/
 ---
 ## Current State
 
-Phase 02 (Knowledge Graph) complete — 2026-03-22. LightRAG knowledge graph terintegrasi dengan LangGraph pipeline — graph_retrieve_node, multi-textbook synthesis via SYSTEM_PROMPT_SYNTHESIS, dan per-author attribution. Siap untuk Phase 03 (Agentic Orchestration dengan LangGraph + CRAG).
+Milestone v1.0 complete dan diarsipkan — 2026-03-28.
+
+8 fase dieksekusi dalam 6 hari (2026-03-22 hingga 2026-03-28): Foundation, Knowledge Graph, Agentic Orchestration, Scale & Observability, Ingestion Polish (04.1), Polish, Cleanup & Hardening (05.1), Session & Observability Fixes (05.2). 40/40 requirements terpenuhi (audit: v1.0-MILESTONE-AUDIT-FINAL.md, status PASS). ROADMAP dan REQUIREMENTS diarsipkan ke `.planning/milestones/v1.0-*`. Git tag v1.0 diterapkan.
+
+Siap untuk milestone berikutnya. Gunakan `/gsd:new-milestone` untuk mendefinisikan scope v1.1.
 
 ---
-*Last updated: 2026-03-22 after Phase 02 completion*
+*Last updated: 2026-03-28 after v1.0 milestone archive*

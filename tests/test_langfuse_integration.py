@@ -31,7 +31,7 @@ def test_handler_created():
         mock_settings.langfuse_public_key = "pk-lf-test-key"
 
         from src.monitoring import langfuse_client
-        result = langfuse_client.get_langfuse_handler(session_id="test-session")
+        result = langfuse_client.get_langfuse_handler()
 
     assert result is mock_handler_instance
 
@@ -50,7 +50,7 @@ def test_handler_disabled():
         import importlib
         importlib.reload(langfuse_client)
 
-        result = langfuse_client.get_langfuse_handler(session_id="test-session")
+        result = langfuse_client.get_langfuse_handler()
 
     assert result is None
 
@@ -70,7 +70,7 @@ def test_handler_graceful_when_no_keys():
         importlib.reload(langfuse_client)
 
         # Must not raise any exception
-        result = langfuse_client.get_langfuse_handler(session_id="test-session")
+        result = langfuse_client.get_langfuse_handler()
 
     assert result is None
 
@@ -125,7 +125,116 @@ def test_settings_has_langfuse_fields():
     assert hasattr(s, "langfuse_base_url"), "Missing field: langfuse_base_url"
     assert hasattr(s, "langfuse_enabled"), "Missing field: langfuse_enabled"
 
-    # Verify defaults
-    assert s.langfuse_public_key == ""
+    # Verify types and non-None defaults (not values — .env may override)
+    assert isinstance(s.langfuse_public_key, str)
     assert s.langfuse_base_url == "https://cloud.langfuse.com"
     assert s.langfuse_enabled is True
+
+
+# ---------------------------------------------------------------------------
+# Test 6: query_sse passes callbacks=[handler] to graph.ainvoke() (MON-04)
+# ---------------------------------------------------------------------------
+
+def test_query_sse_passes_callbacks_to_graph_ainvoke():
+    """backend/main.py query_sse must pass callbacks=[handler] inside the config
+    dict to graph.ainvoke().
+
+    MON-04: Without this wiring, Langfuse receives no traces even when a
+    CallbackHandler is created. This test:
+    1. Stubs out all heavy dependencies (sse_starlette, FastAPI internals, LightRAG)
+       so backend.main can be imported in the test environment.
+    2. Patches get_langfuse_handler to return a sentinel handler object.
+    3. Patches get_graph to return a mock whose ainvoke is an AsyncMock.
+    4. Drives the inner event_stream() async generator from query_sse to completion.
+    5. Asserts that graph.ainvoke() was called with config["callbacks"] == [sentinel_handler].
+    """
+    import asyncio
+    import sys
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    sentinel_handler = MagicMock(name="langfuse_handler")
+
+    mock_graph = MagicMock()
+    mock_graph.ainvoke = AsyncMock(return_value={
+        "query": "test",
+        "response": "Jawaban uji.",
+        "citations": [],
+        "query_type": "Simple",
+        "crag_grade": "CORRECT",
+        "error": None,
+    })
+
+    # Stub out sse_starlette if not available, so backend.main can be imported.
+    # EventSourceResponse is replaced with a simple async-iterable wrapper.
+    sse_stub_installed = False
+    if "sse_starlette" not in sys.modules:
+        class _FakeEventSourceResponse:
+            """Minimal stand-in: wraps an async generator so tests can iterate it."""
+            def __init__(self, gen, *args, **kwargs):
+                self._gen = gen
+
+            def __aiter__(self):
+                return self._gen.__aiter__()
+
+        sse_sse_stub = MagicMock()
+        sse_sse_stub.EventSourceResponse = _FakeEventSourceResponse
+        sse_pkg_stub = MagicMock()
+        sys.modules["sse_starlette"] = sse_pkg_stub
+        sys.modules["sse_starlette.sse"] = sse_sse_stub
+        sse_stub_installed = True
+
+    try:
+        # Force fresh import of backend.main (remove cached version if it exists
+        # from a previous run that may have used stubs).
+        sys.modules.pop("backend.main", None)
+
+        import backend.main as main_module
+        from backend.models import QueryRequest
+
+        async def _run():
+            with patch("backend.main.get_langfuse_handler", return_value=sentinel_handler) as mock_get_handler, \
+                 patch("backend.main.get_graph", return_value=mock_graph), \
+                 patch("backend.main.save_history", new_callable=AsyncMock, return_value="hist-001"):
+
+                request = QueryRequest(question="Apa itu BEP?", session_id="sess-test-001")
+
+                # query_sse returns an EventSourceResponse (or stub) wrapping an async
+                # generator. Drive the generator to completion to trigger ainvoke.
+                response = await main_module.query_sse(request)
+                async for _ in response:
+                    pass
+
+                # get_langfuse_handler must have been called with no arguments (v4 API)
+                mock_get_handler.assert_called_once_with()
+
+                # graph.ainvoke must have been called exactly once
+                mock_graph.ainvoke.assert_called_once()
+
+                # config kwarg must contain "callbacks" key with [sentinel_handler]
+                ainvoke_call = mock_graph.ainvoke.call_args
+                config_passed = ainvoke_call.kwargs.get("config")
+                assert config_passed is not None, (
+                    "graph.ainvoke() was not called with a 'config' keyword argument"
+                )
+                assert "callbacks" in config_passed, (
+                    f"'callbacks' key missing from ainvoke config; "
+                    f"got keys: {list(config_passed.keys())}"
+                )
+                assert config_passed["callbacks"] == [sentinel_handler], (
+                    f"Expected callbacks=[sentinel_handler], "
+                    f"got: {config_passed['callbacks']}"
+                )
+                assert "metadata" in config_passed, (
+                    f"'metadata' key missing from ainvoke config; got keys: {list(config_passed.keys())}"
+                )
+                assert config_passed["metadata"]["langfuse_session_id"] == "sess-test-001"
+                assert config_passed["metadata"]["langfuse_user_id"] == "default"
+
+        asyncio.run(_run())
+
+    finally:
+        # Clean up the stubs and cached module so other tests are unaffected
+        if sse_stub_installed:
+            sys.modules.pop("sse_starlette", None)
+            sys.modules.pop("sse_starlette.sse", None)
+        sys.modules.pop("backend.main", None)

@@ -6,7 +6,6 @@ from pydantic import BaseModel
 class QueryRequest(BaseModel):
     question: str
     session_id: str | None = None
-    history_id: str | None = None
 
 
 class HealthResponse(BaseModel):

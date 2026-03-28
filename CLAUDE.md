@@ -63,9 +63,16 @@ The system has two pipelines: **ingestion** (PDF → indexed chunks) and **query
 
 **Query pipeline** (`src/agents/graph.py` — LangGraph StateGraph):
 - Phase 1: `preprocess → retrieve → rerank → generate → END`
-- Phase 2 (current): `preprocess → retrieve → graph_retrieve → rerank → generate → END`
+- Phase 2: `preprocess → retrieve → graph_retrieve → rerank → generate → END`
+- Phase 3 (current): `route → preprocess → retrieve → graph_retrieve → rerank → crag_grade → [generate | generate_calc | reformulate] → END`
+  - `route_node` classifies query type: Simple/Medium/Complex/Calculation
+  - `crag_grade_node` grades retrieval quality via rerank_score thresholds (0.5/0.2) → CORRECT/AMBIGUOUS/INCORRECT
+  - `crag_router` conditionally routes: CORRECT→generate, Calculation→generate_calc, INCORRECT/AMBIGUOUS→reformulate
+  - `reformulate_node` rewrites query and loops back to retrieve (max 2 iterations)
+  - Compiled with `MemorySaver` checkpointer for conversation memory
 - State schema: `RAGState` in `src/agents/state.py`
 - Each node is a function in `src/agents/nodes.py` that reads/writes to `RAGState`
+- `src/services/graph_service.py` provides singleton access — always builds Phase 3 graph
 
 ### Key Modules
 
@@ -80,8 +87,11 @@ The system has two pipelines: **ingestion** (PDF → indexed chunks) and **query
 | `config/settings.py` | Pydantic Settings loaded from `.env` — all API keys, model names, Qdrant config |
 | `config/glossary.py` | Bidirectional English↔Indonesian accounting glossary (130+ terms) |
 | `config/prompts.py` | System prompts for generation (3 variants: standard, calculation, synthesis) |
-| `backend/main.py` | FastAPI backend with SSE streaming, wraps LangGraph pipeline |
-| `frontend/` | React 19 + TypeScript + Vite + Tailwind v4 + shadcn/ui |
+| `backend/main.py` | FastAPI backend with SSE streaming + history/feedback REST API (see API section below) |
+| `backend/history_db.py` | SQLite-backed chat history persistence (save, list, delete, feedback, title) |
+| `src/services/graph_service.py` | Singleton access to compiled Phase 3 LangGraph + LightRAG instance |
+| `src/monitoring/langfuse_client.py` | Langfuse observability (optional, enabled via `.env`). Lazy imports — gracefully degrades when keys absent |
+| `frontend/` | React 19 + TypeScript + Vite + Tailwind v4 + shadcn/ui + react-markdown + sonner (toasts) |
 
 ### Critical Design Patterns
 
@@ -90,6 +100,22 @@ The system has two pipelines: **ingestion** (PDF → indexed chunks) and **query
 - **Qdrant dual vectors**: Collection MUST be created with both dense and sparse vector configs at creation time. Adding sparse later requires full collection recreation.
 - **Checkpoint resume**: Embedding batches save progress to `data/checkpoints/` after each batch — rate limit interruptions don't restart from zero.
 - **Content-type splitting**: Tables are atomic (≤20 rows) or split with repeated headers. Formulas are atomic (up to 1024 tokens) to keep formula + explanation together. Narrative text uses 512-token recursive split with 75-token overlap.
+
+### Backend API Endpoints
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| `GET` | `/api/health` | Health check (graph_loaded, models) |
+| `POST` | `/api/query` | SSE streaming query — events: `status`, `query_type`, `text` (20-char chunks), `citations`, `crag_grade`, `not_found`, `error`, `done` |
+| `GET` | `/api/history` | Paginated query history (default 20/page) |
+| `GET` | `/api/history/{id}` | Single history detail |
+| `DELETE` | `/api/history/{id}` | Delete history entry |
+| `PATCH` | `/api/history/{id}/feedback` | Thumbs up/down feedback (±1) |
+| `PATCH` | `/api/history/{id}/title` | Edit history title |
+
+Production builds: if `frontend/dist/` exists, backend auto-mounts it as SPA with `/assets` static files.
+
+LightRAG lifecycle: initialized in FastAPI `lifespan` context manager → singleton via `graph_service.set_lightrag()` → finalized on shutdown.
 
 ## Test Markers
 
@@ -116,6 +142,7 @@ Jalankan audit dulu (50 chunks, tanpa `--full`) sebelum full ingestion untuk mem
 
 - Python 3.11 (pinned in `.python-version`)
 - `.env` file required (copy from `.env.example`): `SILICONFLOW_API_KEY`, `QDRANT_URL`, `QDRANT_API_KEY`, `DEEPSEEK_API_KEY`
+- Optional: `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` for observability (enabled by default, gracefully degrades if keys absent)
 - Local GPU (GTX 1660 Ti 6GB) used only for PDF parsing; set `--vram 6` and `--backend pipeline` for MinerU
 - PyTorch CUDA 12.6 installed from custom index (configured in `pyproject.toml` under `[tool.uv.sources]`)
 
@@ -129,6 +156,8 @@ All documentation and user-facing content is in **Indonesian** (Bahasa Indonesia
 |-------|-------|--------|
 | 1 | MVP: Basic RAG + Qdrant + Qwen3 API | Done |
 | 2 | GraphRAG integration with LightRAG | Done |
-| 3 | Agentic orchestration with LangGraph + CRAG | Planned |
+| 3 | Agentic orchestration with LangGraph + CRAG | Done |
 | 4 | Scale to full corpus (100 textbooks) + optimization | Planned |
-| 5 | Polish, documentation, beta launch | Planned |
+| 5 | Polish, documentation, beta launch | In Progress |
+
+Detailed roadmap, requirements, and phase artifacts are in `.planning/` (managed by GSD workflow).

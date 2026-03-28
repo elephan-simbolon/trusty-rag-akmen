@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Job 1: Python unit tests
+  # ─────────────────────────────────────────────
+  test:
+    name: Unit Tests (Python 3.11)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "**/uv.lock"
+
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies (CPU torch override)
+        # torch di pyproject.toml menggunakan pytorch-cu126 index (CUDA 12.6).
+        # --override mengganti resolusi torch ke CPU wheels dari PyPI
+        # sehingga tidak perlu download ~2GB CUDA wheels di GitHub-hosted runners.
+        # --extra dev: proyek menggunakan optional extras (bukan dependency-groups),
+        # sehingga --dev tidak cukup — harus eksplisit --extra dev.
+        run: uv sync --extra dev --override .github/torch-override.txt
+
+      - name: Run tests
+        run: |
+          uv run pytest \
+            -m "not integration and not e2e and not gpu" \
+            --timeout=60 \
+            -q --tb=short
+        env:
+          # Dummy values — config/settings.py memuat Settings() saat import.
+          # Semua fields punya default kosong, tapi ini defensif mencegah
+          # konflik dengan file .env yang mungkin ada di runner.
+          SILICONFLOW_API_KEY: "dummy-ci"
+          QDRANT_URL: "http://localhost:6333"
+          QDRANT_API_KEY: "dummy"
+          DEEPSEEK_API_KEY: "dummy"
+          LANGFUSE_ENABLED: "false"
+
+  # ─────────────────────────────────────────────
+  # Job 2: Lint dengan ruff
+  # ─────────────────────────────────────────────
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "**/uv.lock"
+
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dev deps only
+        # --no-install-project: skip install project beserta dependencies-nya (termasuk torch).
+        # Hanya dev extras yang diinstall (ruff, pytest, dll) — jauh lebih cepat.
+        run: uv sync --extra dev --no-install-project
+
+      - name: ruff check
+        run: uv run ruff check src/ backend/ config/ tests/ --output-format=github
+
+      - name: ruff format check
+        run: uv run ruff format --check src/ backend/ config/ tests/
+
+  # ─────────────────────────────────────────────
+  # Job 3: Frontend build
+  # ─────────────────────────────────────────────
+  build-frontend:
+    name: Frontend Build (React + Vite)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build (tsc + vite)
+        working-directory: frontend
+        run: npm run build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          retention-days: 7

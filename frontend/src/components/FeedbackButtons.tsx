@@ -3,6 +3,7 @@ import { ThumbsUp, ThumbsDown, RotateCcw, Clipboard, Check } from "lucide-react"
 import { Button } from "./ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { toast } from "sonner";
+import { API_BASE_URL } from "@/lib/api";
 
 interface FeedbackButtonsProps {
   historyId: string;
@@ -29,7 +30,7 @@ export default function FeedbackButtons({ historyId, currentFeedback, answerText
   const handleClick = async (value: 1 | -1) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/history/${historyId}/feedback`, {
+      const res = await fetch(`${API_BASE_URL}/api/history/${historyId}/feedback`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ feedback: value }),

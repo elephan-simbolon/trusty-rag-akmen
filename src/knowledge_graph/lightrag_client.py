@@ -84,8 +84,10 @@ async def build_lightrag_instance(llm_model: str | None = None) -> LightRAG:
         prompt: str,
         system_prompt: str | None = None,
         history_messages: list = [],
+        keyword_extraction: bool = False,
         **kwargs,
     ) -> str:
+        kwargs.pop("response_format", None)  # safety net
         return await openai_complete_if_cache(
             model=resolved_model,
             prompt=prompt,
@@ -93,6 +95,7 @@ async def build_lightrag_instance(llm_model: str | None = None) -> LightRAG:
             history_messages=history_messages,
             base_url=llm_base_url,
             api_key=llm_api_key,
+            keyword_extraction=False,  # DeepSeek tidak mendukung structured output
             **kwargs,
         )
 
@@ -109,5 +112,4 @@ async def build_lightrag_instance(llm_model: str | None = None) -> LightRAG:
             "entity_types": ACCOUNTING_ENTITY_TYPES,
         },
     )
-    await rag.initialize_storages()
     return rag

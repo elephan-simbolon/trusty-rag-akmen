@@ -65,16 +65,15 @@ function App() {
   });
 
   const handleSubmit = (question: string) => {
-    const currentHistoryId = historyId || null;
-    if (!currentHistoryId) clear();
+    if (!historyId) clear();
     setCurrentFeedback(null);
     setLastQuestion(question);
-    submit(question, currentHistoryId);
+    submit(question);
   };
 
   const handleRetry = () => {
     if (!lastQuestion || isLoading) return;
-    submit(lastQuestion, historyId || null);
+    submit(lastQuestion);
   };
 
   return (

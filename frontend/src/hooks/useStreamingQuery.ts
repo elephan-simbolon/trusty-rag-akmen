@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import type { StreamState, SSEEvent, HistoryDetail, ChatTurn } from "../types/sse";
+import { API_BASE_URL } from "@/lib/api";
 
 const INITIAL_STATE: StreamState = {
   phase: "idle",
@@ -18,8 +19,9 @@ export function useStreamingQuery() {
   const [state, setState] = useState<StreamState>(INITIAL_STATE);
   const abortRef = useRef<AbortController | null>(null);
   const currentQuestionRef = useRef<string>("");
+  const sessionIdRef = useRef<string>(crypto.randomUUID());
 
-  const submit = useCallback(async (question: string, historyId?: string | null) => {
+  const submit = useCallback(async (question: string) => {
     abortRef.current?.abort();
     const abort = new AbortController();
     abortRef.current = abort;
@@ -29,14 +31,13 @@ export function useStreamingQuery() {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/query`,
+        `${API_BASE_URL}/api/query`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             question,
-            session_id: null,
-            history_id: historyId || null,
+            session_id: sessionIdRef.current,
           }),
           signal: abort.signal,
         }
@@ -58,14 +59,15 @@ export function useStreamingQuery() {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split("\n\n");
+        const parts = buffer.split(/\r\n\r\n|\n\n/);
         buffer = parts.pop() ?? "";
 
         for (const part of parts) {
-          if (!part.startsWith("data: ")) continue;
+          const dataLine = part.split(/\r\n|\n/).find(l => l.startsWith("data: "));
+          if (!dataLine) continue;
           let event: SSEEvent;
           try {
-            event = JSON.parse(part.slice(6)) as SSEEvent;
+            event = JSON.parse(dataLine.slice(6)) as SSEEvent;
           } catch {
             continue;
           }

@@ -1,8 +1,7 @@
 import logging
-import asyncio
-import concurrent.futures
 
 from src.agents.state import RAGState
+from src.services.graph_service import get_lightrag
 from src.retrieval.preprocessor import preprocess_query
 from src.retrieval.vector_search import hybrid_search
 from src.retrieval.reranker import rerank_results
@@ -10,29 +9,9 @@ from src.retrieval.query_classifier import is_calculation_query
 from src.generation.generator import generate_response
 from src.llm.client import generate as llm_generate
 from config.settings import settings
+from config.prompts import SYSTEM_PROMPT_REFORMULATOR
 
 logger = logging.getLogger(__name__)
-
-_lightrag_instance = None
-
-
-def _run_async(coro):
-    """Run async coroutine from sync context, even inside a running event loop."""
-    try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        return asyncio.run(coro)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        return pool.submit(asyncio.run, coro).result()
-
-
-def _get_lightrag():
-    """Lazy singleton — avoid initializing at import time (heavy async startup)."""
-    global _lightrag_instance
-    if _lightrag_instance is None:
-        from src.knowledge_graph.lightrag_client import build_lightrag_instance
-        _lightrag_instance = _run_async(build_lightrag_instance())
-    return _lightrag_instance
 
 
 def route_node(state: RAGState) -> dict:
@@ -84,13 +63,21 @@ def retrieve_node(state: RAGState) -> dict:
         return {"error": f"Retrieval failed: {e}"}
 
 
-def graph_retrieve_node(state: RAGState) -> dict:
-    """Retrieve context from LightRAG knowledge graph (hybrid or local mode)."""
+async def graph_retrieve_node(state: RAGState) -> dict:
+    """Retrieve context from LightRAG knowledge graph (hybrid or local mode).
+
+    Async node — runs directly in FastAPI event loop, no thread hop.
+    LightRAG instance injected via state['lightrag'] from FastAPI lifespan.
+    """
     if state.get("error"):
         return {}
 
+    rag = get_lightrag()
+    if rag is None:
+        logger.error("LightRAG instance not found in graph_service singleton")
+        return {"graph_docs": []}
+
     query = state["query"]
-    rag = _get_lightrag()
 
     RELATIONAL_KEYWORDS = [
         "prerequisite", "prasyarat", "hubungan", "relasi",
@@ -104,9 +91,7 @@ def graph_retrieve_node(state: RAGState) -> dict:
 
     try:
         from lightrag import QueryParam
-        graph_result = _run_async(
-            rag.aquery(query, param=QueryParam(mode=mode))
-        )
+        graph_result = await rag.aquery(query, param=QueryParam(mode=mode))
 
         graph_docs = [{
             "text": graph_result,
@@ -237,35 +222,26 @@ def crag_router(state: RAGState) -> str:
 
 
 def reformulate_node(state: RAGState) -> dict:
-    """Reformulate query via LLM when CRAG grade is AMBIGUOUS/INCORRECT."""
+    """Reformulate ambiguous query using conversation history for context disambiguation."""
     original_query = state["query"]
     llm_count = state.get("llm_call_count", 0)
+    history = (state.get("conversation_history") or [])[-10:]
 
-    reformulation_prompt = [
-        {
-            "role": "system",
-            "content": (
-                "Kamu adalah asisten yang membantu mereformulasi pertanyaan akuntansi "
-                "agar lebih spesifik dan mudah dicari di textbook. Tulis ulang pertanyaan "
-                "berikut dengan kata kunci yang lebih tepat. Jawab HANYA dengan pertanyaan "
-                "baru, tanpa penjelasan."
-            ),
-        },
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT_REFORMULATOR},
+        *history,
         {
             "role": "user",
-            "content": (
-                f"Pertanyaan awal: {original_query}\n\n"
-                "Tulis ulang pertanyaan ini agar lebih spesifik:"
-            ),
+            "content": f"Pertanyaan: {original_query}\n\nTulis ulang pertanyaan ini agar lebih spesifik:",
         },
     ]
 
     try:
-        reformulated = llm_generate(reformulation_prompt, temperature=0.3)
-        logger.info(f"Query reformulated: '{original_query}' -> '{reformulated}'")
+        reformulated = llm_generate(messages, temperature=0.3)
+        logger.info("Query reformulated: %r -> %r", original_query, reformulated)
         return {"query": reformulated.strip(), "llm_call_count": llm_count + 1}
     except Exception as e:
-        logger.error(f"Reformulation failed: {e}, keeping original query")
+        logger.error("Reformulation failed: %s, keeping original query", e)
         return {"query": original_query, "llm_call_count": llm_count}
 
 

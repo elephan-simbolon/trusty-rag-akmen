@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import type { HistoryItem, HistoryDetail } from "../types/sse";
 import { GripVertical, Menu, SquarePen, Settings } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api";
 import { HistoryItemActions } from "./HistoryItemActions";
 import {
   SidebarContent,
@@ -181,7 +182,7 @@ export function HistorySidebar({ userId, onRestore, activeId, items, loading, on
                             isActive={activeId === item.id}
                             onClick={() => {
                               if (renamingId === item.id) return;
-                              fetch(`${import.meta.env.VITE_API_BASE_URL}/api/history/${item.id}?user_id=${userId}`)
+                              fetch(`${API_BASE_URL}/api/history/${item.id}?user_id=${userId}`)
                                 .then((res) => res.json())
                                 .then((detail: HistoryDetail) => onRestore(detail))
                                 .catch((err) => console.error("Failed to restore history:", err));

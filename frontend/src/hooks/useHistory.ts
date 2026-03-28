@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { HistoryItem, HistoryListResponse } from "../types/sse";
+import { API_BASE_URL } from "@/lib/api";
 
 interface UseHistoryReturn {
   items: HistoryItem[];
@@ -18,7 +19,7 @@ export function useHistory(): UseHistoryReturn {
     setLoading(true);
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/history?page=1&per_page=20`
+        `${API_BASE_URL}/api/history?page=1&per_page=20`
       );
       if (!res.ok) throw new Error("Failed to fetch history");
       const data: HistoryListResponse = await res.json();

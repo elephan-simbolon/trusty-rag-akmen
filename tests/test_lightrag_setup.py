@@ -96,3 +96,21 @@ def test_lightrag_config_no_insert_batch_size_in_addon(mock_lightrag_cls):
     asyncio.run(build_lightrag_instance())
     kwargs = mock_lightrag_cls.call_args[1]
     assert "insert_batch_size" not in kwargs["addon_params"]
+
+
+@patch("src.knowledge_graph.lightrag_client.LightRAG")
+def test_build_lightrag_does_not_call_initialize_storages(mock_lightrag_cls):
+    """build_lightrag_instance() must NOT call initialize_storages() internally.
+
+    FLAG-2: The FastAPI lifespan context manager in backend/main.py is the sole
+    correct call site for rag.initialize_storages(). Calling it inside the factory
+    causes double initialization on every startup.
+    """
+    mock_instance = MagicMock()
+    mock_instance.initialize_storages = AsyncMock()
+    mock_lightrag_cls.return_value = mock_instance
+
+    from src.knowledge_graph.lightrag_client import build_lightrag_instance
+    asyncio.run(build_lightrag_instance())
+
+    mock_instance.initialize_storages.assert_not_called()

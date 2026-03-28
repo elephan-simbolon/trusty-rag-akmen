@@ -1,14 +1,20 @@
-import React, { useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, ChevronDown } from "lucide-react";
 import { Button } from "./ui/button";
 import CitationCard from "./CitationCard";
 import FeedbackButtons from "./FeedbackButtons";
 import QueryTypeBadge from "./QueryTypeBadge";
 import StatusIndicator from "./StatusIndicator";
+import { cn } from "@/lib/utils";
+import { CollapsibleRoot, CollapsibleTrigger, CollapsibleContent } from "./ui/collapsible";
 import type { Phase, Citation, ChatTurn } from "../types/sse";
 
-function renderWithCitations(text: string, citations: Citation[]): React.ReactNode {
+function renderWithCitations(
+  text: string,
+  citations: Citation[],
+  openCitationsRef?: React.MutableRefObject<(() => void) | null>,
+): React.ReactNode {
   if (!citations.length) return text;
   const parts = text.split(/(\[\d+\]|\[Sumber\s+\d+[^\]]*\])/g);
   return parts.map((part, i) => {
@@ -22,7 +28,11 @@ function renderWithCitations(text: string, citations: Citation[]): React.ReactNo
             href={`#citation-${n - 1}`}
             onClick={(e) => {
               e.preventDefault();
-              document.getElementById(`citation-${n - 1}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+              // auto-open lalu scroll ke target setelah animasi
+              openCitationsRef?.current?.();
+              setTimeout(() => {
+                document.getElementById(`citation-${n - 1}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+              }, 200);
             }}
             className="text-primary hover:text-primary/80 font-semibold no-underline hover:underline transition-colors cursor-pointer px-px"
           >
@@ -35,7 +45,30 @@ function renderWithCitations(text: string, citations: Citation[]): React.ReactNo
   });
 }
 
-function MarkdownContent({ text, citations = [] }: { text: string; citations: Citation[] }) {
+function renderInlineChildren(
+  children: React.ReactNode,
+  citations: Citation[],
+  openCitationsRef?: React.MutableRefObject<(() => void) | null>,
+): React.ReactNode {
+  if (!citations.length) return children;
+  const arr = Array.isArray(children) ? children : [children];
+  return arr.map((child, i) => {
+    if (typeof child === "string") {
+      return <React.Fragment key={i}>{renderWithCitations(child, citations, openCitationsRef)}</React.Fragment>;
+    }
+    return child;
+  });
+}
+
+function MarkdownContent({
+  text,
+  citations = [],
+  openCitationsRef,
+}: {
+  text: string;
+  citations: Citation[];
+  openCitationsRef?: React.MutableRefObject<(() => void) | null>;
+}) {
   return (
     <div className="text-sm leading-relaxed [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
       <ReactMarkdown
@@ -44,14 +77,14 @@ function MarkdownContent({ text, citations = [] }: { text: string; citations: Ci
           h2: ({ children }) => <h2 className="text-base font-semibold mt-4 mb-2">{children}</h2>,
           h3: ({ children }) => <h3 className="text-sm font-semibold mt-3 mb-1.5">{children}</h3>,
           p: ({ children }) => (
-            <p className="my-1.5">{renderInlineChildren(children, citations)}</p>
+            <p className="my-1.5">{renderInlineChildren(children, citations, openCitationsRef)}</p>
           ),
           strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
           em: ({ children }) => <em className="italic">{children}</em>,
           ul: ({ children }) => <ul className="my-1.5 ml-4 list-disc space-y-0.5">{children}</ul>,
           ol: ({ children }) => <ol className="my-1.5 ml-4 list-decimal space-y-0.5">{children}</ol>,
           li: ({ children }) => (
-            <li className="leading-relaxed">{renderInlineChildren(children, citations)}</li>
+            <li className="leading-relaxed">{renderInlineChildren(children, citations, openCitationsRef)}</li>
           ),
           blockquote: ({ children }) => (
             <blockquote className="my-2 border-l-2 border-primary pl-3 text-muted-foreground italic">
@@ -78,17 +111,6 @@ function MarkdownContent({ text, citations = [] }: { text: string; citations: Ci
   );
 }
 
-function renderInlineChildren(children: React.ReactNode, citations: Citation[]): React.ReactNode {
-  if (!citations.length) return children;
-  const arr = Array.isArray(children) ? children : [children];
-  return arr.map((child, i) => {
-    if (typeof child === "string") {
-      return <React.Fragment key={i}>{renderWithCitations(child, citations)}</React.Fragment>;
-    }
-    return child;
-  });
-}
-
 function UserBubble({ text }: { text: string }) {
   return (
     <div className="ml-auto self-end bg-secondary rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[80%]">
@@ -97,11 +119,25 @@ function UserBubble({ text }: { text: string }) {
   );
 }
 
-function CitationList({ citations, text }: { citations: Citation[]; text: string }) {
-  if (!citations.length) return null;
+function CollapsibleCitationList({
+  citations,
+  openRef,
+}: {
+  citations: Citation[];
+  openRef?: React.MutableRefObject<(() => void) | null>;
+}) {
+  const [open, setOpen] = useState(false);
 
-  const usedIndices = new Set<number>();
-  for (const m of text.matchAll(/\[(?:Sumber\s+)?(\d+)/g)) usedIndices.add(parseInt(m[1]));
+  useEffect(() => {
+    if (openRef) {
+      openRef.current = () => setOpen(true);
+    }
+    return () => {
+      if (openRef) openRef.current = null;
+    };
+  }, [openRef]);
+
+  if (!citations.length) return null;
 
   const seen = new Set<string>();
   const items: { index: number; citation: Citation }[] = [];
@@ -113,14 +149,24 @@ function CitationList({ citations, text }: { citations: Citation[]; text: string
   });
 
   if (items.length === 0) return null;
+
   return (
     <div className="mt-1 pt-3 border-t border-border/50">
-      <p className="text-xs font-medium text-muted-foreground mb-2">Referensi</p>
-      <div className="flex flex-col gap-1.5">
-        {items.map(({ index, citation }) => (
-          <CitationCard key={`${citation.book_title}-${index}`} index={index} citation={citation} />
-        ))}
-      </div>
+      <CollapsibleRoot open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger asChild>
+          <button className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer py-1">
+            <ChevronDown className={cn("h-3 w-3 transition-transform duration-200", open && "rotate-180")} />
+            {open ? "Sembunyikan" : "Lihat"} {items.length} referensi
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="animate-collapsible-down data-[state=closed]:animate-collapsible-up">
+          <div className="flex flex-col gap-1.5 mt-2">
+            {items.map(({ index, citation }) => (
+              <CitationCard key={`${citation.book_title}-${index}`} index={index} citation={citation} />
+            ))}
+          </div>
+        </CollapsibleContent>
+      </CollapsibleRoot>
     </div>
   );
 }
@@ -153,6 +199,7 @@ export default function ChatMessage({
   onRetry,
 }: ChatMessageProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const citationsOpenRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -170,7 +217,7 @@ export default function ChatMessage({
             <QueryTypeBadge queryType={turn.queryType} />
           </div>
           <MarkdownContent text={turn.text} citations={turn.citations} />
-          <CitationList citations={turn.citations || []} text={turn.text} />
+          <CollapsibleCitationList citations={turn.citations || []} />
         </div>
       ))}
 
@@ -201,8 +248,8 @@ export default function ChatMessage({
               <div className="flex items-center gap-2">
                 <QueryTypeBadge queryType={queryType} />
               </div>
-              <MarkdownContent text={text} citations={citations} />
-              <CitationList citations={citations} text={text} />
+              <MarkdownContent text={text} citations={citations} openCitationsRef={citationsOpenRef} />
+              <CollapsibleCitationList citations={citations} openRef={citationsOpenRef} />
             </>
           ) : null}
           {historyId && (

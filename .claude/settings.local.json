@@ -12,7 +12,12 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:neo4j.com)",
       "WebFetch(domain:medium.com)",
-      "WebFetch(domain:www.firecrawl.dev)"
+      "WebFetch(domain:www.firecrawl.dev)",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "mcp__plugin_playwright_playwright__browser_network_requests"
     ]
   }
 }

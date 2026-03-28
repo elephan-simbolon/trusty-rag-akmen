@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -15,12 +16,29 @@ from sse_starlette.sse import EventSourceResponse
 
 from backend.models import QueryRequest, HealthResponse
 from backend.history_db import save_history, list_history, get_history_detail, delete_history, update_feedback, update_title
-from src.services.graph_service import get_graph
+from src.services.graph_service import get_graph, set_lightrag
+from src.monitoring.langfuse_client import get_langfuse_handler
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Trusty RAG Akmen API", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize and teardown LightRAG singleton in the FastAPI event loop."""
+    from src.knowledge_graph.lightrag_client import build_lightrag_instance
+    logger.info("Initializing LightRAG instance...")
+    rag = await build_lightrag_instance()
+    await rag.initialize_storages()
+    set_lightrag(rag)
+    logger.info("LightRAG ready.")
+    yield
+    set_lightrag(None)
+    logger.info("Shutting down LightRAG...")
+    await rag.finalize_storages()
+
+
+app = FastAPI(title="Trusty RAG Akmen API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,20 +60,6 @@ async def health():
     )
 
 
-def _invoke_graph(question: str, session_id: str) -> dict:
-    """Blocking graph invocation — run in thread pool."""
-    graph = get_graph()
-    return graph.invoke(
-        {
-            "query": question,
-            "conversation_history": [],
-            "crag_iterations": 0,
-            "crag_grade": None,
-        },
-        config={"configurable": {"thread_id": session_id}},
-    )
-
-
 @app.post("/api/query")
 async def query_sse(request: QueryRequest):
     session_id = request.session_id or str(uuid4())
@@ -64,7 +68,24 @@ async def query_sse(request: QueryRequest):
         yield _sse_event("status", {"message": "Mencari referensi..."})
 
         try:
-            result = await asyncio.to_thread(_invoke_graph, request.question, session_id)
+            graph = get_graph()
+            handler = get_langfuse_handler()
+            callbacks = [handler] if handler else []
+            result = await graph.ainvoke(
+                {
+                    "query": request.question,
+                    "crag_iterations": 0,
+                    "crag_grade": None,
+                },
+                config={
+                    "configurable": {"thread_id": session_id},
+                    "callbacks": callbacks,
+                    "metadata": {
+                        "langfuse_session_id": session_id,
+                        "langfuse_user_id": "default",
+                    },
+                },
+            )
         except Exception as e:
             logger.error(f"Graph invoke failed: {e}")
             yield _sse_event("error", {"message": "Terjadi kesalahan saat memproses pertanyaan."})

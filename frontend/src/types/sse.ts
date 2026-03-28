@@ -7,6 +7,7 @@ export interface Citation {
   page_end: number;
   section_path: string;
   formatted: string;
+  author?: string;
 }
 
 export interface ChatTurn {

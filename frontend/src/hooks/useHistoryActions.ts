@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import type { HistoryItem } from "../types/sse";
+import { API_BASE_URL } from "@/lib/api";
 
 interface UseHistoryActionsProps {
   items: HistoryItem[];
@@ -28,7 +29,7 @@ export function useHistoryActions({
 
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/history/${id}`,
+        `${API_BASE_URL}/api/history/${id}`,
         { method: "DELETE" }
       );
       if (!res.ok) throw new Error("Gagal menghapus riwayat");
@@ -50,7 +51,7 @@ export function useHistoryActions({
 
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/history/${id}/title`,
+        `${API_BASE_URL}/api/history/${id}/title`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },

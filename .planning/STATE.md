@@ -2,44 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-stopped_at: Completed 04.1-02-PLAN.md (all tasks done; content filtering + enqueue/process split + --resume flag)
-last_updated: "2026-03-23T12:18:31.761Z"
+status: Milestone v1.0 archived, ready for next milestone
+stopped_at: v1.0 archive complete (ROADMAP + REQUIREMENTS archived, git tag v1.0 applied)
+last_updated: "2026-03-28T00:00:00Z"
 progress:
-  total_phases: 6
-  completed_phases: 5
-  total_plans: 21
-  completed_plans: 21
-  percent: 95
----
-
----
-gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: unknown
-stopped_at: Phase 4.1 context gathered
-last_updated: "2026-03-23T10:35:10.685Z"
-progress:
-  [██████████] 95%
-  completed_phases: 4
-  total_plans: 21
-  completed_plans: 19
-  percent: 84
----
-
----
-gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: unknown
-stopped_at: "Completed 03-04-PLAN.md tasks 1-2; awaiting checkpoint:human-verify for Task 3"
-last_updated: "2026-03-22T12:36:38.900Z"
-progress:
-  [████████░░] 84%
-  completed_phases: 3
-  total_plans: 19
-  completed_plans: 15
+  total_phases: 8
+  completed_phases: 8
+  total_plans: 26
+  completed_plans: 26
 ---
 
 # Project State
@@ -49,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Mempercepat pencarian referensi akuntansi dari 45-60 menit menjadi 5-10 menit, dengan source citation (buku, chapter, halaman) yang bisa dipertanggungjawabkan ke klien
-**Current focus:** Phase 04.1 — ingestion-polish
+**Current focus:** Phase 05.2 — session-and-observability-fixes
 
 ## Current Position
 
-Phase: 04.1 (ingestion-polish) — EXECUTING
-Plan: 1 of 2
+Phase: 05.2
+Plan: Not started
 
 ## Performance Metrics
 
@@ -94,6 +64,11 @@ Plan: 1 of 2
 | Phase 04-scale-and-observability P04 | 2 | 1 tasks | 3 files |
 | Phase 04.1-ingestion-polish P01 | 4 | 1 tasks | 2 files |
 | Phase 04.1-ingestion-polish P02 | 10 | 2 tasks | 3 files |
+| Phase 05-polish P01 | 4 | 2 tasks | 3 files |
+| Phase 05.1-cleanup-and-hardening P01 | 5 | 2 tasks | 2 files |
+| Phase 05.1-cleanup-and-hardening P02 | 5 | 2 tasks | 7 files |
+| Phase 05.2-session-and-observability-fixes P01 | 6 | 3 tasks | 7 files |
+| Phase 05.2-session-and-observability-fixes P02 | 8 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -163,6 +138,16 @@ Recent decisions affecting current work:
 - [Phase 04.1-ingestion-polish]: Content filtering applied BEFORE audit_mode slice — ensures 50-chunk audit sample reflects only ingestion-worthy content types (narrative_text + example_problem)
 - [Phase 04.1-ingestion-polish]: resume_lightrag_ingestion() only calls apipeline_process_enqueue_documents() — never re-enqueues (Pitfall 1: re-enqueue creates FAILED [DUPLICATE] records)
 - [Phase 04.1-ingestion-polish]: manifest mark_book_ingested only on --full with result['failed']==0, or --resume with failed==0 and pending==0 — prevents premature manifest marking on partial runs
+- [Phase 05-polish]: Author prefix in build_citation uses 'author + comma + space' prefix; empty string treated as absent to avoid leading comma
+- [Phase 05-polish]: Removed citation_block append from generator.py — CitationList UI is the sole citation display mechanism, no duplication in response text
+- [Phase 05.1-cleanup-and-hardening]: get_langfuse_handler called per query session in query_sse — prevents trace bleed (consistent with Phase 04 decision)
+- [Phase 05.1-cleanup-and-hardening]: build_lightrag_instance() no longer calls initialize_storages() — lifespan is the sole call site
+- [Phase 05.1-cleanup-and-hardening]: Used || '' fallback (not ?? '') in api.ts — Vite substitutes absent VITE_* vars with undefined at build time; empty string enables relative URLs in production SPA
+- [Phase 05.1-cleanup-and-hardening]: Gated main.tsx startup warning to import.meta.env.DEV to prevent false-positive console.error in production
+- [Phase 05.2-session-and-observability-fixes]: Langfuse v4 CallbackHandler takes no constructor args — session/user attribution via metadata in ainvoke config (langfuse_session_id, langfuse_user_id)
+- [Phase 05.2-session-and-observability-fixes]: sessionIdRef = useRef(crypto.randomUUID()) — stable per-browser-session UUID generated once at component mount, persists across re-renders without state overhead
+- [Phase 05.2-session-and-observability-fixes]: history_id removed from QueryRequest — was accepted by backend but never read, dead weight in API contract
+- [Phase 05.2-session-and-observability-fixes]: Removed conversation_history from ainvoke input — MemorySaver alone manages history accumulation via operator.add reducer
 
 ### Roadmap Evolution
 
@@ -180,6 +165,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T11:10:33.194Z
-Stopped at: Completed 04.1-02-PLAN.md (all tasks done; content filtering + enqueue/process split + --resume flag)
+Last session: 2026-03-28T00:00:00Z
+Stopped at: v1.0 archive complete — ROADMAP.md collapsed, REQUIREMENTS.md archived, PROJECT.md updated, git tag v1.0 applied
 Resume file: None
