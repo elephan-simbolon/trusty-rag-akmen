@@ -12,7 +12,7 @@ dependencies = [
     "mineru==2.7.6",
     "docling==2.81.0",
     "pymupdf==1.27.2.2",
-    "llama-index-core==0.14.18",
+    "llama-index-core==0.14.19",
     "chonkie[semantic]==1.6.1",
     "pydantic-settings>=2.0",
     "tenacity",
