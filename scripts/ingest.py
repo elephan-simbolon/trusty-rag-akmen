@@ -5,6 +5,7 @@ Usage:
     python scripts/ingest.py data/pdfs/ --book-title "Cost Accounting"
     python scripts/ingest.py book1.pdf book2.pdf --output-dir data/parsed
 """
+
 import argparse
 import logging
 import sys
@@ -21,9 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Ingest PDF textbooks into Trusty RAG Akmen"
-    )
+    parser = argparse.ArgumentParser(description="Ingest PDF textbooks into Trusty RAG Akmen")
     parser.add_argument(
         "pdf_paths",
         nargs="+",

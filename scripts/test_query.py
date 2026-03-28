@@ -1,4 +1,5 @@
 """CLI tool for testing RAG queries without the Streamlit UI."""
+
 import argparse
 import json
 import logging

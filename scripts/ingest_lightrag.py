@@ -22,6 +22,7 @@ Usage:
 The chunks JSON must match the Phase 1 backup format:
     [{"text": "...", "metadata": {"book_title": "...", "chapter": "...", ...}}]
 """
+
 import argparse
 import asyncio
 import json
@@ -83,7 +84,7 @@ def main() -> None:
         "--resume",
         action="store_true",
         help="Resume interrupted ingestion — process PENDING/FAILED docs without re-enqueuing. "
-             "Run --clean-duplicates first if previous --full created duplicate records.",
+        "Run --clean-duplicates first if previous --full created duplicate records.",
     )
     parser.add_argument(
         "--clean-duplicates",
@@ -94,7 +95,7 @@ def main() -> None:
         "--model",
         default=None,
         help="Override LightRAG extraction model (e.g. deepseek-chat, Qwen/Qwen3-30B-A3B-Instruct-2507). "
-             "Defaults to LIGHTRAG_LLM_MODEL in .env.",
+        "Defaults to LIGHTRAG_LLM_MODEL in .env.",
     )
     args = parser.parse_args()
 
@@ -102,6 +103,7 @@ def main() -> None:
 
     if args.clean_duplicates:
         from src.knowledge_graph.graph_ingestion import clean_duplicate_doc_status
+
         removed = asyncio.run(clean_duplicate_doc_status())
         print(f"\nCleaned {removed} duplicate records from doc_status")
         sys.exit(0)
@@ -109,6 +111,7 @@ def main() -> None:
     if args.resume:
         # Resume path: reprocess PENDING/FAILED docs from doc_status — no file needed
         from src.knowledge_graph.graph_ingestion import resume_lightrag_ingestion
+
         result = asyncio.run(resume_lightrag_ingestion(llm_model=args.model))
         print(
             f"\nResume complete: {result['ingested']}/{result['total']} chunks processed, "
@@ -136,6 +139,7 @@ def main() -> None:
 
     # Ingestion path: enqueue + process from chunks file
     from src.knowledge_graph.graph_ingestion import ingest_chunks_to_lightrag
+
     result = asyncio.run(
         ingest_chunks_to_lightrag(args.chunks_path, audit_mode=not args.full, llm_model=args.model)
     )

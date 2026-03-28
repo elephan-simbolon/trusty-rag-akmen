@@ -27,16 +27,27 @@ export function HistoryItemActions({
 }: HistoryItemActionsProps) {
   const [draftTitle, setDraftTitle] = useState(currentTitle);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [prevIsRenaming, setPrevIsRenaming] = useState(isRenaming);
 
+  // Adjust state during render (React recommended pattern — react.dev/learn/you-might-not-need-an-effect)
+  // Sync draftTitle ke currentTitle saat isRenaming berubah jadi true
+  if (isRenaming && !prevIsRenaming) {
+    setPrevIsRenaming(true);
+    setDraftTitle(currentTitle);
+  }
+  if (!isRenaming && prevIsRenaming) {
+    setPrevIsRenaming(false);
+  }
+
+  // useEffect hanya untuk side effect DOM (focus/select input)
   useEffect(() => {
     if (isRenaming) {
-      setDraftTitle(currentTitle);
       requestAnimationFrame(() => {
         inputRef.current?.focus();
         inputRef.current?.select();
       });
     }
-  }, [isRenaming, currentTitle]);
+  }, [isRenaming]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
