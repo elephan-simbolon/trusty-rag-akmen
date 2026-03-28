@@ -48,12 +48,8 @@ jobs:
       - name: Install Python ${{ env.PYTHON_VERSION }}
         run: uv python install ${{ env.PYTHON_VERSION }}
 
-      - name: Install dependencies (CPU torch override)
-        # torch di pyproject.toml menggunakan pytorch-cu126 index (CUDA 12.6).
-        # --no-sources: abaikan tool.uv.sources (termasuk pytorch-cu126 index),
-        # sehingga torch di-resolve dari PyPI (CPU-only wheels, ~300MB vs ~2GB CUDA).
-        # Tidak pakai --frozen karena lockfile berisi torch+cu126 yang tidak ada di PyPI.
-        # --extra dev: install semua dev dependencies (pytest, ruff, dll).
+      - name: Install dependencies (CPU-only)
+        # --no-sources: abaikan tool.uv.sources (pytorch-cu126), resolve torch dari PyPI.
         run: uv sync --extra dev --no-sources
 
       - name: Run tests
@@ -65,14 +61,11 @@ jobs:
             --cov-report=xml --cov-report=term-missing \
             -q --tb=short
         env:
-          # Dummy values — config/settings.py memuat Settings() saat import.
-          # Semua fields punya default kosong, tapi ini defensif mencegah
-          # konflik dengan file .env yang mungkin ada di runner.
+          # Dummy values agar Settings() dapat diimport tanpa error.
           SILICONFLOW_API_KEY: "dummy-ci"
           QDRANT_URL: "http://localhost:6333"
           QDRANT_API_KEY: "dummy"
           DEEPSEEK_API_KEY: "dummy"
-          LANGFUSE_ENABLED: "false"
 
       - name: Upload coverage
         if: always()

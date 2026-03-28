@@ -46,16 +46,15 @@ def test_handler_created():
 
 def test_handler_disabled():
     """get_langfuse_handler() returns None when langfuse_enabled=False."""
+    import importlib
+
+    from src.monitoring import langfuse_client
+
+    importlib.reload(langfuse_client)
+
     with patch("src.monitoring.langfuse_client.settings") as mock_settings:
         mock_settings.langfuse_enabled = False
         mock_settings.langfuse_public_key = "pk-lf-test-key"
-
-        import importlib
-
-        from src.monitoring import langfuse_client
-
-        importlib.reload(langfuse_client)
-
         result = langfuse_client.get_langfuse_handler()
 
     assert result is None
@@ -68,17 +67,15 @@ def test_handler_disabled():
 
 def test_handler_graceful_when_no_keys():
     """get_langfuse_handler() returns None without raising when LANGFUSE_PUBLIC_KEY is empty."""
+    import importlib
+
+    from src.monitoring import langfuse_client
+
+    importlib.reload(langfuse_client)
+
     with patch("src.monitoring.langfuse_client.settings") as mock_settings:
         mock_settings.langfuse_enabled = True
         mock_settings.langfuse_public_key = ""  # empty key — graceful degradation
-
-        import importlib
-
-        from src.monitoring import langfuse_client
-
-        importlib.reload(langfuse_client)
-
-        # Must not raise any exception
         result = langfuse_client.get_langfuse_handler()
 
     assert result is None

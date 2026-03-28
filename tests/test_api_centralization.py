@@ -14,6 +14,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
+
 PROJECT_ROOT = Path(__file__).parent.parent
 FRONTEND_SRC = PROJECT_ROOT / "frontend" / "src"
 
@@ -177,6 +179,7 @@ def test_streamlit_absent_from_pyproject_toml():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.e2e
 def test_frontend_dist_directory_exists():
     """A prior successful Vite production build must have produced frontend/dist/."""
     dist_dir = PROJECT_ROOT / "frontend" / "dist"
@@ -186,6 +189,7 @@ def test_frontend_dist_directory_exists():
     )
 
 
+@pytest.mark.e2e
 def test_frontend_dist_contains_index_html():
     """frontend/dist/ must contain index.html — the SPA entry point."""
     index_html = PROJECT_ROOT / "frontend" / "dist" / "index.html"
@@ -194,6 +198,7 @@ def test_frontend_dist_contains_index_html():
     )
 
 
+@pytest.mark.e2e
 def test_frontend_dist_contains_assets():
     """frontend/dist/ must contain an assets/ subdirectory with bundled JS/CSS."""
     assets_dir = PROJECT_ROOT / "frontend" / "dist" / "assets"
@@ -207,6 +212,7 @@ def test_frontend_dist_contains_assets():
     )
 
 
+@pytest.mark.e2e
 def test_vite_build_exits_zero():
     """Vite production build must complete successfully (exit code 0)."""
     frontend_dir = PROJECT_ROOT / "frontend"

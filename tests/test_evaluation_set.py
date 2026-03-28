@@ -34,6 +34,7 @@ def eval_queries() -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.e2e
 def test_eval_queries_json_loads(eval_queries: list[dict]) -> None:
     """eval_queries.json loads as a list of exactly 20 dicts."""
     assert isinstance(eval_queries, list), "eval_queries.json must be a JSON array"
@@ -45,6 +46,7 @@ def test_eval_queries_json_loads(eval_queries: list[dict]) -> None:
         assert isinstance(q, dict), f"Item at index {i} must be a dict, got {type(q)}"
 
 
+@pytest.mark.e2e
 def test_eval_queries_required_fields(eval_queries: list[dict]) -> None:
     """Each query has all required fields: id, query, expected_books, expected_chapters, difficulty."""
     for q in eval_queries:
@@ -68,6 +70,7 @@ def test_eval_queries_required_fields(eval_queries: list[dict]) -> None:
         )
 
 
+@pytest.mark.e2e
 def test_eval_queries_difficulty_distribution(eval_queries: list[dict]) -> None:
     """Distribution check: at least 4 Simple, 4 Medium/Complex combined, 4 Calculation queries.
 
@@ -96,6 +99,7 @@ def test_eval_queries_difficulty_distribution(eval_queries: list[dict]) -> None:
     )
 
 
+@pytest.mark.e2e
 def test_eval_queries_unique_ids(eval_queries: list[dict]) -> None:
     """All 20 query IDs are unique and follow the EVAL-XX pattern."""
     ids = [q.get("id") for q in eval_queries]

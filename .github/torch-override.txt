@@ -1,4 +1,0 @@
-# Override torch ke CPU wheels di CI (GitHub-hosted runners tidak punya CUDA).
-# uv akan mengabaikan pytorch-cu126 index dan resolve torch dari PyPI (CPU-only wheels).
-# Digunakan dengan: uv sync --dev --override .github/torch-override.txt
-torch>=2.0.0
