@@ -3,8 +3,27 @@ name: CI
 on:
   push:
     branches: [main, master]
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
+      - ".planning/**"
+      - "LICENSE"
   pull_request:
     branches: [main, master]
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
+      - ".planning/**"
+      - "LICENSE"
+
+# Batalkan run lama jika push baru masuk ke branch yang sama
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Prinsip least privilege — CI hanya butuh baca repo
+permissions:
+  contents: read
 
 env:
   PYTHON_VERSION: "3.11"
@@ -18,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v7
@@ -33,15 +52,16 @@ jobs:
         # torch di pyproject.toml menggunakan pytorch-cu126 index (CUDA 12.6).
         # --override mengganti resolusi torch ke CPU wheels dari PyPI
         # sehingga tidak perlu download ~2GB CUDA wheels di GitHub-hosted runners.
-        # --extra dev: proyek menggunakan optional extras (bukan dependency-groups),
-        # sehingga --dev tidak cukup — harus eksplisit --extra dev.
-        run: uv sync --extra dev --override .github/torch-override.txt
+        # --frozen: CI harus exact-match dengan uv.lock — gagal jika lockfile outdated.
+        run: uv sync --frozen --extra dev --override .github/torch-override.txt
 
       - name: Run tests
         run: |
           uv run pytest \
             -m "not integration and not e2e and not gpu" \
             --timeout=60 \
+            --cov=src --cov=backend --cov=config \
+            --cov-report=xml --cov-report=term-missing \
             -q --tb=short
         env:
           # Dummy values — config/settings.py memuat Settings() saat import.
@@ -53,6 +73,13 @@ jobs:
           DEEPSEEK_API_KEY: "dummy"
           LANGFUSE_ENABLED: "false"
 
+      - name: Upload coverage
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+
   # ─────────────────────────────────────────────
   # Job 2: Lint dengan ruff
   # ─────────────────────────────────────────────
@@ -61,7 +88,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v7
@@ -75,23 +102,24 @@ jobs:
       - name: Install dev deps only
         # --no-install-project: skip install project beserta dependencies-nya (termasuk torch).
         # Hanya dev extras yang diinstall (ruff, pytest, dll) — jauh lebih cepat.
-        run: uv sync --extra dev --no-install-project
+        # --frozen: pastikan lockfile tidak drift.
+        run: uv sync --frozen --extra dev --no-install-project
 
       - name: ruff check
-        run: uv run ruff check src/ backend/ config/ tests/ --output-format=github
+        run: uv run ruff check src/ backend/ config/ tests/ scripts/ --output-format=github
 
       - name: ruff format check
-        run: uv run ruff format --check src/ backend/ config/ tests/
+        run: uv run ruff format --check src/ backend/ config/ tests/ scripts/
 
   # ─────────────────────────────────────────────
-  # Job 3: Frontend build
+  # Job 3: Frontend build + lint
   # ─────────────────────────────────────────────
   build-frontend:
     name: Frontend Build (React + Vite)
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
@@ -103,6 +131,10 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: npm ci
+
+      - name: Lint (ESLint)
+        working-directory: frontend
+        run: npm run lint
 
       - name: Build (tsc + vite)
         working-directory: frontend

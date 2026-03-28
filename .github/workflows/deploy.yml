@@ -13,11 +13,17 @@ on:
           - production
           - staging
 
-  # Uncomment setelah deployment target dikonfirmasi:
+  # Auto-deploy ke production setelah CI pass di main
+  # Uncomment jika sudah siap:
   # workflow_run:
   #   workflows: ["CI"]
   #   types: [completed]
-  #   branches: [main, master]
+  #   branches: [main]
+
+# Deploy hanya butuh baca repo; write permissions (packages, deployments)
+# ditambahkan per-job sesuai kebutuhan.
+permissions:
+  contents: read
 
 jobs:
   # ─────────────────────────────────────────────
@@ -28,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
@@ -53,16 +59,16 @@ jobs:
           retention-days: 1
 
   # ─────────────────────────────────────────────
-  # Deploy — PILIH SATU OPSI DAN UNCOMMENT
+  # Deploy Frontend ke Vercel (Opsi C)
   # ─────────────────────────────────────────────
-  deploy:
-    name: Deploy (${{ github.event.inputs.environment }})
+  deploy-frontend:
+    name: Deploy Frontend → Vercel (${{ github.event.inputs.environment }})
     runs-on: ubuntu-latest
     needs: build-frontend
     environment: ${{ github.event.inputs.environment }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Download frontend dist
         uses: actions/download-artifact@v4
@@ -70,55 +76,64 @@ jobs:
           name: frontend-dist-${{ github.sha }}
           path: frontend/dist/
 
-      # ── OPSI A: Docker + SSH ke VPS ────────────────────────────────────────
-      # Secrets yang dibutuhkan: REGISTRY_TOKEN, DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY
+      # ── Vercel Deploy ───────────────────────────────────────────────────────
+      # Secrets yang dibutuhkan (set di GitHub repo Settings > Secrets):
+      #   VERCEL_TOKEN       — dari https://vercel.com/account/tokens
+      #   VERCEL_ORG_ID      — dari .vercel/project.json setelah `vercel link`
+      #   VERCEL_PROJECT_ID  — dari .vercel/project.json setelah `vercel link`
       #
-      # - name: Login ke container registry
-      #   run: |
-      #     echo "${{ secrets.REGISTRY_TOKEN }}" | \
-      #       docker login ghcr.io -u ${{ github.actor }} --password-stdin
-      #
-      # - name: Build & push Docker image
-      #   run: |
-      #     docker build -t ghcr.io/${{ github.repository }}:${{ github.sha }} .
-      #     docker push ghcr.io/${{ github.repository }}:${{ github.sha }}
-      #
-      # - name: Deploy via SSH
-      #   uses: appleboy/ssh-action@v1
-      #   with:
-      #     host: ${{ secrets.DEPLOY_HOST }}
-      #     username: ${{ secrets.DEPLOY_USER }}
-      #     key: ${{ secrets.DEPLOY_SSH_KEY }}
-      #     script: |
-      #       docker pull ghcr.io/${{ github.repository }}:${{ github.sha }}
-      #       docker compose up -d --no-deps backend
+      # VITE_API_BASE_URL harus di-set di Vercel Dashboard > Project > Settings >
+      # Environment Variables agar frontend tahu endpoint backend.
+      - name: Deploy ke Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: frontend/dist
+          vercel-args: ${{ github.event.inputs.environment == 'production' && '--prod' || '' }}
 
-      # ── OPSI B: Railway ────────────────────────────────────────────────────
-      # Secrets yang dibutuhkan: RAILWAY_TOKEN
-      #
-      # - uses: bervProject/railway-deploy@v1.0.0
-      #   with:
-      #     railway_token: ${{ secrets.RAILWAY_TOKEN }}
-      #     service: trusty-rag-backend
-
-      # ── OPSI C: Vercel (frontend saja) ─────────────────────────────────────
-      # Secrets yang dibutuhkan: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
-      #
-      # - uses: amondnet/vercel-action@v25
-      #   with:
-      #     vercel-token: ${{ secrets.VERCEL_TOKEN }}
-      #     vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-      #     vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-      #     working-directory: frontend/dist
-
-      # ── PLACEHOLDER — hapus step ini setelah opsi di atas diaktifkan ───────
-      - name: Deployment target belum dikonfigurasi
-        run: |
-          echo "Deployment target belum dikonfigurasi."
-          echo "Edit .github/workflows/deploy.yml dan uncomment opsi yang sesuai:"
-          echo "  - Opsi A: Docker + SSH ke VPS"
-          echo "  - Opsi B: Railway / Render / Fly.io"
-          echo "  - Opsi C: Vercel (frontend only)"
-          echo ""
-          echo "SHA    : ${{ github.sha }}"
-          echo "Target : ${{ github.event.inputs.environment }}"
+  # ─────────────────────────────────────────────
+  # Deploy Backend — belum dikonfigurasi
+  # ─────────────────────────────────────────────
+  # Uncomment dan sesuaikan saat backend deployment target sudah ditentukan.
+  #
+  # deploy-backend:
+  #   name: Deploy Backend
+  #   runs-on: ubuntu-latest
+  #   needs: build-frontend
+  #   environment: ${{ github.event.inputs.environment }}
+  #
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #
+  #     # ── OPSI A: Docker + SSH ke VPS ───────────────────────────────────────
+  #     # Secrets: REGISTRY_TOKEN, DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY
+  #     #
+  #     # - name: Login ke container registry
+  #     #   run: |
+  #     #     echo "${{ secrets.REGISTRY_TOKEN }}" | \
+  #     #       docker login ghcr.io -u ${{ github.actor }} --password-stdin
+  #     #
+  #     # - name: Build & push Docker image
+  #     #   run: |
+  #     #     docker build -t ghcr.io/${{ github.repository }}:${{ github.sha }} .
+  #     #     docker push ghcr.io/${{ github.repository }}:${{ github.sha }}
+  #     #
+  #     # - name: Deploy via SSH
+  #     #   uses: appleboy/ssh-action@v1
+  #     #   with:
+  #     #     host: ${{ secrets.DEPLOY_HOST }}
+  #     #     username: ${{ secrets.DEPLOY_USER }}
+  #     #     key: ${{ secrets.DEPLOY_SSH_KEY }}
+  #     #     script: |
+  #     #       docker pull ghcr.io/${{ github.repository }}:${{ github.sha }}
+  #     #       docker compose up -d --no-deps backend
+  #
+  #     # ── OPSI B: Railway ──────────────────────────────────────────────────
+  #     # Secrets: RAILWAY_TOKEN
+  #     #
+  #     # - uses: bervProject/railway-deploy@v1.0.0
+  #     #   with:
+  #     #     railway_token: ${{ secrets.RAILWAY_TOKEN }}
+  #     #     service: trusty-rag-backend
