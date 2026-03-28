@@ -1,5 +1,5 @@
-import re
 import logging
+
 from src.ingestion.chunking.classifier import ContentType, classify_element
 
 logger = logging.getLogger(__name__)
@@ -48,8 +48,13 @@ def split_large_table(markdown_table: str, max_rows: int = 20) -> list[str]:
     """
     lines = markdown_table.strip().split("\n")
     # Find header and separator
-    table_lines = [l for l in lines if l.strip().startswith("|")]
-    non_table_prefix = [l for l in lines if not l.strip().startswith("|") and lines.index(l) < (lines.index(table_lines[0]) if table_lines else 0)]
+    table_lines = [line for line in lines if line.strip().startswith("|")]
+    non_table_prefix = [
+        line
+        for line in lines
+        if not line.strip().startswith("|")
+        and lines.index(line) < (lines.index(table_lines[0]) if table_lines else 0)
+    ]
 
     if len(table_lines) < 3:
         return [markdown_table]
@@ -64,7 +69,7 @@ def split_large_table(markdown_table: str, max_rows: int = 20) -> list[str]:
     prefix = "\n".join(non_table_prefix).strip()
     chunks = []
     for i in range(0, len(data_rows), max_rows):
-        row_group = data_rows[i:i + max_rows]
+        row_group = data_rows[i : i + max_rows]
         chunk = "\n".join([header_line, separator_line] + row_group)
         if prefix:
             chunk = prefix + "\n" + chunk

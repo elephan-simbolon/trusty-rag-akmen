@@ -1,4 +1,5 @@
 """Batch embedder with checkpoint resume — embed + upload per batch."""
+
 import json
 import logging
 from collections.abc import Callable
@@ -36,7 +37,7 @@ def embed_chunks_batch(
 
     total = 0
     for i in range(start_idx, len(chunks), batch_size):
-        batch = chunks[i:i + batch_size]
+        batch = chunks[i : i + batch_size]
 
         if use_contextual_window and parent_texts:
             texts = [

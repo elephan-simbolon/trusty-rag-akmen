@@ -1,35 +1,34 @@
-"""Tests for Phase 3 graph topology and backward compatibility.
+"""Tests for Phase 3 graph topology.
 
 Covers:
 - build_phase3_graph() compiles and returns a usable graph
 - Graph has all 9 expected nodes (route, preprocess, retrieve, graph_retrieve,
   rerank, crag_grade, reformulate, generate, generate_calc)
-- build_phase1_graph() backward compatibility
-- build_phase2_graph() backward compatibility
 - Graph invocation with thread_id config does not raise
 """
-import pytest
-from unittest.mock import patch, MagicMock
 
 
 # ---------------------------------------------------------------------------
 # Helpers: build Phase 3 graph
 # ---------------------------------------------------------------------------
 
+
 def _make_phase3_graph_with_mocks():
     """Build Phase 3 graph.
 
     All LightRAG/SiliconFlow/Qdrant imports in nodes.py are lazy (inside function
-    bodies or _get_lightrag singleton), so importing graph.py does not trigger
-    any external service connections at import time. No sys.modules patching needed.
+    bodies), so importing graph.py does not trigger any external service connections
+    at import time. No sys.modules patching needed.
     """
     from src.agents.graph import build_phase3_graph
+
     return build_phase3_graph()
 
 
 # ---------------------------------------------------------------------------
 # Test: build_phase3_graph compiles
 # ---------------------------------------------------------------------------
+
 
 def test_build_phase3_graph_returns_compiled_graph():
     """build_phase3_graph() returns a compiled LangGraph (not None, has invoke)."""
@@ -49,6 +48,7 @@ def test_build_phase3_graph_has_invoke_and_stream():
 # Test: Phase 3 graph node presence
 # ---------------------------------------------------------------------------
 
+
 def test_phase3_graph_has_expected_nodes():
     """Graph contains all 9 expected nodes for Phase 3 topology."""
     graph = _make_phase3_graph_with_mocks()
@@ -56,8 +56,15 @@ def test_phase3_graph_has_expected_nodes():
     # LangGraph compiled graph exposes node names via graph.nodes or similar attribute
     # Check via the underlying graph structure
     expected_nodes = {
-        "route", "preprocess", "retrieve", "graph_retrieve",
-        "rerank", "crag_grade", "reformulate", "generate", "generate_calc"
+        "route",
+        "preprocess",
+        "retrieve",
+        "graph_retrieve",
+        "rerank",
+        "crag_grade",
+        "reformulate",
+        "generate",
+        "generate_calc",
     }
 
     # Access node names from the compiled graph
@@ -73,52 +80,22 @@ def test_phase3_graph_has_expected_nodes():
 
     # Verify all expected nodes are present
     for expected in expected_nodes:
-        assert expected in node_names, (
-            f"Node '{expected}' not found in graph nodes {node_names}"
-        )
-
-
-# ---------------------------------------------------------------------------
-# Test: Backward compatibility — Phase 1 and Phase 2 graphs still compile
-# ---------------------------------------------------------------------------
-
-def test_build_phase1_graph_still_compiles():
-    """build_phase1_graph() compiles without error (no regression)."""
-    from src.agents.graph import build_phase1_graph
-    graph = build_phase1_graph()
-    assert graph is not None
-    assert hasattr(graph, "invoke")
-
-
-def test_build_phase2_graph_still_compiles():
-    """build_phase2_graph() compiles without error (no regression)."""
-    from src.agents.graph import build_phase2_graph
-    graph = build_phase2_graph()
-    assert graph is not None
-    assert hasattr(graph, "invoke")
-
-
-def test_phase1_graph_entry_is_preprocess():
-    """Phase 1 graph entry point is preprocess (not route)."""
-    from src.agents.graph import build_phase1_graph
-    graph = build_phase1_graph()
-    # Phase 1 graph has no route node
-    if hasattr(graph, "nodes"):
-        assert "preprocess" in graph.nodes
-        assert "route" not in {n for n in graph.nodes if not n.startswith("__")}
+        assert expected in node_names, f"Node '{expected}' not found in graph nodes {node_names}"
 
 
 # ---------------------------------------------------------------------------
 # Test: Graph invocation with thread_id config does not raise
 # ---------------------------------------------------------------------------
 
+
 def test_phase3_graph_invocation_with_thread_id_does_not_raise():
     """Invoking the graph with thread_id config should not raise an exception.
 
     Uses fully mocked nodes so no API calls are made.
     """
-    from langgraph.graph import StateGraph, END
     from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.graph import END, StateGraph
+
     from src.agents.state import RAGState
 
     def mock_route(state):
@@ -172,9 +149,13 @@ def test_phase3_graph_invocation_with_thread_id_does_not_raise():
     g.add_edge("retrieve", "graph_retrieve")
     g.add_edge("graph_retrieve", "rerank")
     g.add_edge("rerank", "crag_grade")
-    g.add_conditional_edges("crag_grade", mock_crag_router, {
-        "generate": "generate",
-    })
+    g.add_conditional_edges(
+        "crag_grade",
+        mock_crag_router,
+        {
+            "generate": "generate",
+        },
+    )
     g.add_edge("generate", END)
     compiled = g.compile(checkpointer=MemorySaver())
 

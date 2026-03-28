@@ -1,5 +1,5 @@
-import re
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +34,12 @@ def create_formula_index(
                 context_start = max(0, idx - 200)
                 context_end = min(len(text), idx + len(match) + 200)
                 context = text[context_start:context_end].strip()
-                formulas.append({
-                    "latex": latex,
-                    "context": context,
-                })
+                formulas.append(
+                    {
+                        "latex": latex,
+                        "context": context,
+                    }
+                )
 
     if not formulas:
         return None
@@ -61,5 +63,5 @@ def create_formula_index(
             "page_start": 0,
             "page_end": 0,
             "is_formula_index": True,
-        }
+        },
     }

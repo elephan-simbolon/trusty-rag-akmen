@@ -7,10 +7,9 @@ Tests:
   4. run_ingestion_pipeline raises ValueError when book exists and replace_existing=False
   5. run_ingestion_pipeline calls delete_book when book exists and replace_existing=True
 """
-import pytest
-from contextlib import ExitStack
-from unittest.mock import MagicMock, patch, call
 
+from contextlib import ExitStack
+from unittest.mock import MagicMock, patch
 
 COLLECTION = "trusty_rag_akmen"
 
@@ -18,6 +17,7 @@ COLLECTION = "trusty_rag_akmen"
 # ---------------------------------------------------------------------------
 # Tests for check_book_exists
 # ---------------------------------------------------------------------------
+
 
 def test_check_book_not_exists():
     """check_book_exists returns False when scroll returns empty list."""
@@ -52,10 +52,12 @@ def test_check_book_exists():
 # Test for delete_book
 # ---------------------------------------------------------------------------
 
+
 def test_delete_book_by_filter():
     """delete_book calls client.delete with FilterSelector containing book_title match."""
+    from qdrant_client.models import FieldCondition, FilterSelector, MatchValue
+
     from src.ingestion.indexing.qdrant_uploader import delete_book
-    from qdrant_client.models import FilterSelector, Filter, FieldCondition, MatchValue
 
     client = MagicMock()
 
@@ -65,15 +67,16 @@ def test_delete_book_by_filter():
     call_kwargs = client.delete.call_args
 
     # Verify collection_name is correct
-    assert call_kwargs.kwargs.get("collection_name") == COLLECTION or \
-           call_args_positional_contains(call_kwargs, COLLECTION), \
-           "delete() was not called with the expected collection_name"
+    assert call_kwargs.kwargs.get("collection_name") == COLLECTION or call_args_positional_contains(
+        call_kwargs, COLLECTION
+    ), "delete() was not called with the expected collection_name"
 
     # Verify points_selector contains the expected filter structure
     points_selector = call_kwargs.kwargs.get("points_selector")
     assert points_selector is not None, "points_selector not passed to client.delete()"
-    assert isinstance(points_selector, FilterSelector), \
+    assert isinstance(points_selector, FilterSelector), (
         f"Expected FilterSelector, got {type(points_selector)}"
+    )
 
     # Check that the filter targets book_title field with the correct value
     filt = points_selector.filter
@@ -96,6 +99,7 @@ def call_args_positional_contains(call_kwargs, value):
 # ---------------------------------------------------------------------------
 # Tests for run_ingestion_pipeline incremental guard
 # ---------------------------------------------------------------------------
+
 
 def _make_pipeline_mocks():
     """Return a dict of patches needed to run run_ingestion_pipeline without I/O."""
@@ -127,9 +131,13 @@ def test_pipeline_skips_when_book_exists_no_replace(tmp_path):
     patches = _make_pipeline_mocks()
 
     with ExitStack() as stack:
-        stack.enter_context(patch("src.ingestion.pipeline.get_qdrant_client", return_value=mock_client))
+        stack.enter_context(
+            patch("src.ingestion.pipeline.get_qdrant_client", return_value=mock_client)
+        )
         stack.enter_context(patch("src.ingestion.pipeline.health_check", return_value=True))
-        mock_check = stack.enter_context(patch("src.ingestion.pipeline.check_book_exists", return_value=True))
+        mock_check = stack.enter_context(
+            patch("src.ingestion.pipeline.check_book_exists", return_value=True)
+        )
         for target, val in patches.items():
             stack.enter_context(patch(target, val))
 
@@ -158,9 +166,13 @@ def test_pipeline_deletes_when_book_exists_with_replace(tmp_path):
     patches = _make_pipeline_mocks()
 
     with ExitStack() as stack:
-        stack.enter_context(patch("src.ingestion.pipeline.get_qdrant_client", return_value=mock_client))
+        stack.enter_context(
+            patch("src.ingestion.pipeline.get_qdrant_client", return_value=mock_client)
+        )
         stack.enter_context(patch("src.ingestion.pipeline.health_check", return_value=True))
-        mock_check = stack.enter_context(patch("src.ingestion.pipeline.check_book_exists", return_value=True))
+        mock_check = stack.enter_context(
+            patch("src.ingestion.pipeline.check_book_exists", return_value=True)
+        )
         mock_delete = stack.enter_context(patch("src.ingestion.pipeline.delete_book"))
         for target, val in patches.items():
             stack.enter_context(patch(target, val))

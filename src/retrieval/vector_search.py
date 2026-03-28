@@ -1,15 +1,16 @@
 import logging
-from qdrant_client import QdrantClient
+
 from qdrant_client.models import (
-    SparseVector,
-    FusionQuery,
     Fusion,
-    Prefetch,
+    FusionQuery,
     NearestQuery,
+    Prefetch,
+    SparseVector,
 )
+
 from config.settings import settings
-from src.services.qdrant_service import get_qdrant_client
 from src.ingestion.indexing.qdrant_uploader import compute_sparse_vector
+from src.services.qdrant_service import get_qdrant_client
 
 logger = logging.getLogger(__name__)
 
@@ -48,10 +49,12 @@ def hybrid_search(
                 limit=top_k,
             ),
             Prefetch(
-                query=NearestQuery(nearest=SparseVector(
-                    indices=sparse_vec.indices,
-                    values=sparse_vec.values,
-                )),
+                query=NearestQuery(
+                    nearest=SparseVector(
+                        indices=sparse_vec.indices,
+                        values=sparse_vec.values,
+                    )
+                ),
                 using="sparse",
                 limit=top_k,
             ),
@@ -63,19 +66,21 @@ def hybrid_search(
     search_results = []
     for point in results.points:
         payload = point.payload or {}
-        search_results.append({
-            "id": point.id,
-            "score": point.score if hasattr(point, "score") else 0.0,
-            "text": payload.get("text", ""),
-            "metadata": {
-                "book_title": payload.get("book_title", ""),
-                "chapter": payload.get("chapter", ""),
-                "section_path": payload.get("section_path", ""),
-                "content_type": payload.get("content_type", ""),
-                "page_start": payload.get("page_start", 0),
-                "page_end": payload.get("page_end", 0),
+        search_results.append(
+            {
+                "id": point.id,
+                "score": point.score if hasattr(point, "score") else 0.0,
+                "text": payload.get("text", ""),
+                "metadata": {
+                    "book_title": payload.get("book_title", ""),
+                    "chapter": payload.get("chapter", ""),
+                    "section_path": payload.get("section_path", ""),
+                    "content_type": payload.get("content_type", ""),
+                    "page_start": payload.get("page_start", 0),
+                    "page_end": payload.get("page_end", 0),
+                },
             }
-        })
+        )
 
     logger.info(f"Hybrid search returned {len(search_results)} results for: {query_text[:80]}")
     return search_results

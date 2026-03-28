@@ -13,6 +13,7 @@ Usage (via CLI):
     python scripts/ingest_lightrag.py data/chunks_backup.json --full
     python scripts/ingest_lightrag.py data/chunks_backup.json --resume
 """
+
 import json
 import logging
 from pathlib import Path
@@ -119,7 +120,13 @@ async def ingest_chunks_to_lightrag(
     finally:
         await rag.finalize_storages()
 
-    return {"total": total, "ingested": ingested, "failed": failed, "duplicates": duplicates, "real_failed": real_failed}
+    return {
+        "total": total,
+        "ingested": ingested,
+        "failed": failed,
+        "duplicates": duplicates,
+        "real_failed": real_failed,
+    }
 
 
 async def resume_lightrag_ingestion(llm_model: str | None = None) -> dict:

@@ -1,5 +1,4 @@
-import pytest
-from src.ingestion.chunking.classifier import classify_element, ContentType
+from src.ingestion.chunking.classifier import ContentType, classify_element
 
 
 def test_classify_narrative():

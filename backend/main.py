@@ -9,16 +9,23 @@ from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
-from backend.models import QueryRequest, HealthResponse
-from backend.history_db import save_history, list_history, get_history_detail, delete_history, update_feedback, update_title
-from src.services.graph_service import get_graph, set_lightrag
-from src.monitoring.langfuse_client import get_langfuse_handler
+from backend.history_db import (
+    delete_history,
+    get_history_detail,
+    list_history,
+    save_history,
+    update_feedback,
+    update_title,
+)
+from backend.models import HealthResponse, QueryRequest
 from config.settings import settings
+from src.monitoring.langfuse_client import get_langfuse_handler
+from src.services.graph_service import get_graph, set_lightrag
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +34,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Initialize and teardown LightRAG singleton in the FastAPI event loop."""
     from src.knowledge_graph.lightrag_client import build_lightrag_instance
+
     logger.info("Initializing LightRAG instance...")
     rag = await build_lightrag_instance()
     await rag.initialize_storages()
@@ -118,18 +126,24 @@ async def query_sse(request: QueryRequest):
         if citations:
             yield _sse_event("citations", {"data": citations})
 
-        history_id = await save_history(request.question, response, citations, query_type, crag_grade)
+        history_id = await save_history(
+            request.question, response, citations, query_type, crag_grade
+        )
 
-        yield _sse_event("done", {
-            "history_id": history_id,
-            "query_type": query_type,
-            "crag_grade": crag_grade,
-        })
+        yield _sse_event(
+            "done",
+            {
+                "history_id": history_id,
+                "query_type": query_type,
+                "crag_grade": crag_grade,
+            },
+        )
 
     return EventSourceResponse(event_stream())
 
 
 # --- History endpoints ---
+
 
 @app.get("/api/history")
 async def get_history_list(page: int = Query(1, ge=1), per_page: int = Query(20, ge=1, le=100)):

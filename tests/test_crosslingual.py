@@ -1,7 +1,3 @@
-import pytest
-from unittest.mock import patch, MagicMock
-
-
 def test_indonesian_query_retrieves_english(mock_siliconflow):
     """LANG-01: Indonesian accounting query retrieves relevant English textbook passages without translation."""
     from src.retrieval.preprocessor import preprocess_query
@@ -29,9 +25,9 @@ def test_glossary_injection_in_prompt():
 def test_output_bilingual_format(mock_siliconflow):
     """LANG-03: Generated response uses Indonesian prose with English technical terms in parentheses."""
     # Override mock to return bilingual format
-    mock_siliconflow.chat.completions.create.return_value.choices[0].message.content = (
-        "Alokasi biaya overhead (*overhead cost allocation*) adalah proses mendistribusikan biaya tidak langsung."
-    )
+    mock_siliconflow.chat.completions.create.return_value.choices[
+        0
+    ].message.content = "Alokasi biaya overhead (*overhead cost allocation*) adalah proses mendistribusikan biaya tidak langsung."
 
     mock_docs = [
         {

@@ -1,9 +1,8 @@
-import pytest
-from src.ingestion.chunking.structure_splitter import split_by_headings
-from src.ingestion.chunking.content_splitter import split_narrative, split_large_table
-from src.ingestion.chunking.hierarchy_builder import build_hierarchy
+from src.ingestion.chunking.content_splitter import split_large_table, split_narrative
 from src.ingestion.chunking.formula_indexer import create_formula_index
+from src.ingestion.chunking.hierarchy_builder import build_hierarchy
 from src.ingestion.chunking.metadata_enricher import enrich_metadata, validate_metadata
+from src.ingestion.chunking.structure_splitter import split_by_headings
 
 
 def test_heading_hierarchy_split():
@@ -54,7 +53,11 @@ def test_hierarchy_builder_parent_child():
     chunks = [
         {
             "text": ("Break-even analysis text. " * 50),  # ~1250 chars ~312 tokens
-            "metadata": {"book_title": "Cost Accounting", "chapter": "Chapter 5", "content_type": "narrative_text"}
+            "metadata": {
+                "book_title": "Cost Accounting",
+                "chapter": "Chapter 5",
+                "content_type": "narrative_text",
+            },
         }
         for _ in range(6)
     ]
@@ -82,15 +85,15 @@ def test_formula_index_creation():
     chunks = [
         {
             "text": "The BEP formula is: $$BEP = FC / (P - VC)$$ This is the break-even point formula.",
-            "metadata": {"content_type": "formula"}
+            "metadata": {"content_type": "formula"},
         },
         {
             "text": "Narrative text about cost accounting principles without any formula.",
-            "metadata": {"content_type": "narrative_text"}
+            "metadata": {"content_type": "narrative_text"},
         },
         {
             "text": "Contribution margin: $$CM = P - VC$$ measures the profit per unit sold.",
-            "metadata": {"content_type": "formula"}
+            "metadata": {"content_type": "formula"},
         },
     ]
     result = create_formula_index(chunks, chapter="Chapter 5", book_title="Cost Accounting")

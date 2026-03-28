@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+
 from src.ingestion.chunking.content_splitter import estimate_tokens
 
 logger = logging.getLogger(__name__)
@@ -49,25 +50,29 @@ def build_hierarchy(
             parent_metadata = {**current_parent_children[0].get("metadata", {})}
             parent_metadata["node_type"] = "parent"
 
-            nodes.append(ChunkNode(
-                text=parent_text,
-                node_type="parent",
-                parent_id=None,
-                chunk_id=parent_id,
-                metadata=parent_metadata,
-            ))
+            nodes.append(
+                ChunkNode(
+                    text=parent_text,
+                    node_type="parent",
+                    parent_id=None,
+                    chunk_id=parent_id,
+                    metadata=parent_metadata,
+                )
+            )
 
             for child_chunk in current_parent_children:
                 child_id = f"child-{child_counter:04d}"
                 child_metadata = {**child_chunk.get("metadata", {})}
                 child_metadata["node_type"] = "child"
-                nodes.append(ChunkNode(
-                    text=child_chunk["text"],
-                    node_type="child",
-                    parent_id=parent_id,
-                    chunk_id=child_id,
-                    metadata=child_metadata,
-                ))
+                nodes.append(
+                    ChunkNode(
+                        text=child_chunk["text"],
+                        node_type="child",
+                        parent_id=parent_id,
+                        chunk_id=child_id,
+                        metadata=child_metadata,
+                    )
+                )
                 child_counter += 1
 
             parent_counter += 1
@@ -84,25 +89,29 @@ def build_hierarchy(
         parent_metadata = {**current_parent_children[0].get("metadata", {})}
         parent_metadata["node_type"] = "parent"
 
-        nodes.append(ChunkNode(
-            text=parent_text,
-            node_type="parent",
-            parent_id=None,
-            chunk_id=parent_id,
-            metadata=parent_metadata,
-        ))
+        nodes.append(
+            ChunkNode(
+                text=parent_text,
+                node_type="parent",
+                parent_id=None,
+                chunk_id=parent_id,
+                metadata=parent_metadata,
+            )
+        )
 
         for child_chunk in current_parent_children:
             child_id = f"child-{child_counter:04d}"
             child_metadata = {**child_chunk.get("metadata", {})}
             child_metadata["node_type"] = "child"
-            nodes.append(ChunkNode(
-                text=child_chunk["text"],
-                node_type="child",
-                parent_id=parent_id,
-                chunk_id=child_id,
-                metadata=child_metadata,
-            ))
+            nodes.append(
+                ChunkNode(
+                    text=child_chunk["text"],
+                    node_type="child",
+                    parent_id=parent_id,
+                    chunk_id=child_id,
+                    metadata=child_metadata,
+                )
+            )
             child_counter += 1
 
     logger.info(f"Built hierarchy: {parent_counter + 1} parents, {child_counter} children")

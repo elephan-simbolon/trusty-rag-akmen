@@ -10,11 +10,11 @@ Verifies that when graph_docs contains multi-source context:
 
 No live API calls — all LightRAG and SiliconFlow interactions are mocked.
 """
-import pytest
-from unittest.mock import patch, MagicMock
+
+from unittest.mock import patch
+
 from src.agents.nodes import generate_node
 from src.generation.generator import generate_response
-
 
 # ---------------------------------------------------------------------------
 # Shared test data
@@ -86,6 +86,7 @@ COMPARISON_QUERY = "bandingkan pendekatan ABC costing dari Horngren versus Garri
 # ---------------------------------------------------------------------------
 # Test: generate_node merges multiple graph_docs into single graph_context
 # ---------------------------------------------------------------------------
+
 
 def test_generate_node_merges_multiple_graph_docs_into_graph_context():
     """generate_node joins text from multiple graph_docs entries with double newline."""
@@ -159,13 +160,14 @@ def test_generate_node_multi_source_graph_context_joined_with_double_newline():
 # Test: generate_response uses SYSTEM_PROMPT_SYNTHESIS with multi-source context
 # ---------------------------------------------------------------------------
 
+
 @patch("src.generation.generator.generate")
 def test_synthesis_prompt_selected_for_multi_source_comparison(mock_llm):
     """generate_response uses SYSTEM_PROMPT_SYNTHESIS when graph_context is non-empty."""
     mock_llm.return_value = "Menurut Horngren, ABC costing menggunakan activity cost pools."
 
     graph_context = "\n\n".join(d["text"] for d in MULTI_SOURCE_GRAPH_DOCS)
-    result = generate_response(
+    generate_response(
         query=COMPARISON_QUERY,
         context_docs=MOCK_VECTOR_DOCS,
         graph_context=graph_context,
@@ -175,8 +177,8 @@ def test_synthesis_prompt_selected_for_multi_source_comparison(mock_llm):
     messages = call_args[0][0] if call_args[0] else call_args[1]["messages"]
     system_msg = messages[0]["content"]
 
-    # SYSTEM_PROMPT_SYNTHESIS contains per-source attribution rule
-    assert "Atribusi per-sumber" in system_msg
+    # SYSTEM_PROMPT_SYNTHESIS contains synthesis marker (not in SYSTEM_PROMPT_GENERATOR)
+    assert "textbook dan knowledge graph" in system_msg
 
 
 @patch("src.generation.generator.generate")
@@ -185,7 +187,7 @@ def test_comparison_instruction_present_in_synthesis_prompt_for_multi_source(moc
     mock_llm.return_value = "Comparison answer."
 
     graph_context = "\n\n".join(d["text"] for d in MULTI_SOURCE_GRAPH_DOCS)
-    result = generate_response(
+    generate_response(
         query=COMPARISON_QUERY,
         context_docs=MOCK_VECTOR_DOCS,
         graph_context=graph_context,
@@ -258,8 +260,9 @@ def test_phase1_prompt_not_used_for_multi_source_comparison(mock_llm):
 
     # Phase 1 prompt does NOT contain the per-source attribution rule
     # (SYSTEM_PROMPT_GENERATOR has rules 1-5 only; rule 6 is only in SYSTEM_PROMPT_SYNTHESIS)
-    from config.prompts import SYSTEM_PROMPT_GENERATOR
     from config.glossary import GLOSSARY
+    from config.prompts import SYSTEM_PROMPT_GENERATOR
+
     terms = list(GLOSSARY.items())[:50]
     glossary_snippet = "\n".join(f"- {en} = {id_}" for en, id_ in terms)
     phase1_prompt = SYSTEM_PROMPT_GENERATOR.format(glossary_snippet=glossary_snippet)
@@ -270,6 +273,7 @@ def test_phase1_prompt_not_used_for_multi_source_comparison(mock_llm):
 # ---------------------------------------------------------------------------
 # Test: citations are still built from vector docs, not from graph_docs
 # ---------------------------------------------------------------------------
+
 
 @patch("src.generation.generator.generate")
 def test_citations_from_vector_docs_not_graph_for_comparison_query(mock_llm):

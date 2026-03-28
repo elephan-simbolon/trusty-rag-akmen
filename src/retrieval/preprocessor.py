@@ -1,4 +1,5 @@
 import logging
+
 from config.glossary import GLOSSARY_REVERSE
 from src.llm.client import embed_query
 

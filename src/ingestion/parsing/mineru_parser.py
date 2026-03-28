@@ -1,9 +1,9 @@
+import json
+import logging
+import os
 import subprocess
 import sys
-import os
-import json
 from pathlib import Path
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +24,18 @@ def parse_with_mineru(pdf_path: str, output_dir: str) -> dict:
     mineru_exe = str(Path(sys.executable).parent / "mineru")
     cmd = [
         mineru_exe,
-        "-p", str(pdf_path),
-        "-o", str(output_dir),
-        "-b", "pipeline",         # NEVER "auto" on GTX 1660 Ti — silent CPU fallback
-        "--vram", "6",            # 6 GB VRAM limit
-        "-d", "cuda",
-        "-l", "en",               # English textbooks
+        "-p",
+        str(pdf_path),
+        "-o",
+        str(output_dir),
+        "-b",
+        "pipeline",  # NEVER "auto" on GTX 1660 Ti — silent CPU fallback
+        "--vram",
+        "6",  # 6 GB VRAM limit
+        "-d",
+        "cuda",
+        "-l",
+        "en",  # English textbooks
     ]
 
     logger.info(f"MinerU subprocess: {' '.join(cmd)}")
@@ -44,9 +50,7 @@ def parse_with_mineru(pdf_path: str, output_dir: str) -> dict:
 
     if result.returncode != 0:
         logger.error(f"MinerU failed: {result.stderr}")
-        raise RuntimeError(
-            f"MinerU failed for {pdf_path}: {result.stderr[:500]}"
-        )
+        raise RuntimeError(f"MinerU failed for {pdf_path}: {result.stderr[:500]}")
 
     # MinerU outputs to {output_dir}/{pdf_stem}/auto/{pdf_stem}.md
     pdf_stem = Path(pdf_path).stem
@@ -69,6 +73,7 @@ def parse_with_mineru(pdf_path: str, output_dir: str) -> dict:
 # Entry point for subprocess isolation (run as module)
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True)
     parser.add_argument("--output", required=True)

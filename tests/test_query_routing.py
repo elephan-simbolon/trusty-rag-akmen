@@ -2,14 +2,14 @@
 
 Tests are pure-function unit tests — no mocks, no live services.
 """
-import pytest
-from src.retrieval.query_classifier import is_calculation_query
-from src.agents.state import RAGState
 
+from src.agents.state import RAGState
+from src.retrieval.query_classifier import is_calculation_query
 
 # ---------------------------------------------------------------------------
 # RETR-06: Rule-based Calculation detection (is_calculation_query)
 # ---------------------------------------------------------------------------
+
 
 class TestIsCalculationQuery:
     """Requirement RETR-06: detect Calculation queries via rule (numbers + keywords),
@@ -30,9 +30,12 @@ class TestIsCalculationQuery:
 
     def test_berapa_with_fixed_cost_and_units_returns_true(self):
         """'berapa overhead allocation rate jika fixed cost 50000 dan units 1000?' has keyword + numbers."""
-        assert is_calculation_query(
-            "berapa overhead allocation rate jika fixed cost 50000 dan units 1000?"
-        ) is True
+        assert (
+            is_calculation_query(
+                "berapa overhead allocation rate jika fixed cost 50000 dan units 1000?"
+            )
+            is True
+        )
 
     def test_jelaskan_variance_without_number_returns_false(self):
         """'jelaskan variance analysis' has no number."""
@@ -62,6 +65,7 @@ class TestIsCalculationQuery:
 # ---------------------------------------------------------------------------
 # RAGState: field completeness checks
 # ---------------------------------------------------------------------------
+
 
 class TestRAGStateFields:
     """Verify RAGState contains all expected fields from Phase 1, 2, and 3."""
@@ -112,14 +116,13 @@ class TestRAGStateFields:
         """RAGState should have exactly 15 fields (8 Phase 1 + 2 Phase 2 + 5 Phase 3)."""
         annotations = RAGState.__annotations__
         assert len(annotations) == 15, (
-            f"Expected 15 fields, got {len(annotations)}. "
-            f"Fields: {sorted(annotations.keys())}"
+            f"Expected 15 fields, got {len(annotations)}. Fields: {sorted(annotations.keys())}"
         )
 
     def test_conversation_history_uses_annotated_reducer(self):
         """conversation_history must use Annotated[list, operator.add] for MemorySaver accumulation."""
-        import typing
         import operator
+
         annotations = RAGState.__annotations__
         assert "conversation_history" in annotations
         ann = annotations["conversation_history"]

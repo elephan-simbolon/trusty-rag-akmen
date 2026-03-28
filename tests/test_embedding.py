@@ -1,5 +1,5 @@
-from src.llm.client import embed_query, embed_document
 from config.settings import settings
+from src.llm.client import embed_document, embed_query
 
 
 def test_query_embedding_has_prefix(mock_siliconflow):
@@ -7,9 +7,14 @@ def test_query_embedding_has_prefix(mock_siliconflow):
     embed_query("apa itu break-even point?")
     call_args = mock_siliconflow.embeddings.create.call_args
     # The input passed to the API must include the instruction prefix
-    assert settings.embedding_query_instruction in call_args.kwargs.get("input", call_args.args[0] if call_args.args else "")
+    assert settings.embedding_query_instruction in call_args.kwargs.get(
+        "input", call_args.args[0] if call_args.args else ""
+    )
     # Also verify dimensions were passed correctly
-    assert call_args.kwargs.get("dimensions") == 1024 or call_args.kwargs.get("dimensions") == settings.embedding_dimensions
+    assert (
+        call_args.kwargs.get("dimensions") == 1024
+        or call_args.kwargs.get("dimensions") == settings.embedding_dimensions
+    )
 
 
 def test_document_embedding_no_prefix(mock_siliconflow):
@@ -24,6 +29,7 @@ def test_document_embedding_no_prefix(mock_siliconflow):
 def test_embed_query_uses_ui_retry_config():
     """UAT-11 gap: embed_query harus pakai fast-fail retry agar UI tidak freeze."""
     import src.llm.client as client_mod
+
     ui_cfg = client_mod._UI_RETRY_CONFIG
     # Fast-fail: maksimal 2 attempts
     assert ui_cfg["stop"].max_attempt_number == 2, (
@@ -42,6 +48,7 @@ def test_embed_query_uses_ui_retry_config():
 def test_batch_functions_keep_slow_retry():
     """embed_batch dan embed_document harus tetap pakai _RETRY_CONFIG (lambat) untuk ingestion."""
     import src.llm.client as client_mod
+
     ui_cfg = client_mod._UI_RETRY_CONFIG
     batch_cfg = client_mod._RETRY_CONFIG
     assert ui_cfg["stop"].max_attempt_number != batch_cfg["stop"].max_attempt_number, (

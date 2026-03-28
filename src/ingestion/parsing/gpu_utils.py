@@ -5,16 +5,14 @@ import os
 logger = logging.getLogger(__name__)
 
 # Must be set BEFORE importing torch — set at module level
-os.environ.setdefault(
-    "PYTORCH_CUDA_ALLOC_CONF",
-    "max_split_size_mb:512,expandable_segments:True"
-)
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:512,expandable_segments:True")
 
 
 def vram_cleanup():
     """Full VRAM cleanup: gc.collect → empty_cache → synchronize."""
     try:
         import torch
+
         if torch.cuda.is_available():
             gc.collect()
             torch.cuda.empty_cache()

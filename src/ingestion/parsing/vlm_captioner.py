@@ -1,10 +1,15 @@
 import base64
-from pathlib import Path
 import logging
+from pathlib import Path
+
 from tenacity import (
-    retry, stop_after_attempt, wait_exponential,
-    retry_if_exception_type, before_sleep_log
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
 )
+
 from config.settings import settings
 from src.llm.client import get_openai_client
 
@@ -23,7 +28,7 @@ VLM_CAPTION_PROMPT = (
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=30, max=120),
     before_sleep=before_sleep_log(logger, logging.WARNING),
-    reraise=True
+    reraise=True,
 )
 def caption_diagram(image_path: str | Path) -> str:
     """
@@ -55,11 +60,9 @@ def caption_diagram(image_path: str | Path) -> str:
                     {"type": "text", "text": VLM_CAPTION_PROMPT},
                     {
                         "type": "image_url",
-                        "image_url": {
-                            "url": f"data:{mime_type};base64,{b64_image}"
-                        }
-                    }
-                ]
+                        "image_url": {"url": f"data:{mime_type};base64,{b64_image}"},
+                    },
+                ],
             }
         ],
         max_tokens=1024,
@@ -77,23 +80,24 @@ def extract_and_caption_diagrams(parsed_output_dir: str | Path) -> list[dict]:
     """
     output_dir = Path(parsed_output_dir)
     image_extensions = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
-    images = [
-        f for f in output_dir.rglob("*")
-        if f.suffix.lower() in image_extensions
-    ]
+    images = [f for f in output_dir.rglob("*") if f.suffix.lower() in image_extensions]
 
     results = []
     for img_path in images:
         try:
             caption = caption_diagram(img_path)
-            results.append({
-                "image_path": str(img_path),
-                "caption": caption,
-            })
+            results.append(
+                {
+                    "image_path": str(img_path),
+                    "caption": caption,
+                }
+            )
         except Exception as e:
             logger.error(f"Failed to caption {img_path}: {e}")
-            results.append({
-                "image_path": str(img_path),
-                "caption": f"[Captioning failed: {e}]",
-            })
+            results.append(
+                {
+                    "image_path": str(img_path),
+                    "caption": f"[Captioning failed: {e}]",
+                }
+            )
     return results

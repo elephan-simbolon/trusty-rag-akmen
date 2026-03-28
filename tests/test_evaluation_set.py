@@ -85,16 +85,14 @@ def test_eval_queries_difficulty_distribution(eval_queries: list[dict]) -> None:
     calc_count = dist.get("Calculation", 0)
 
     assert simple_count >= 4, (
-        f"Expected at least 4 Simple queries, found {simple_count}. "
-        f"Distribution: {dist}"
+        f"Expected at least 4 Simple queries, found {simple_count}. Distribution: {dist}"
     )
     assert medium_count + complex_count >= 4, (
         f"Expected at least 4 Medium+Complex queries, found {medium_count + complex_count}. "
         f"Distribution: {dist}"
     )
     assert calc_count >= 4, (
-        f"Expected at least 4 Calculation queries, found {calc_count}. "
-        f"Distribution: {dist}"
+        f"Expected at least 4 Calculation queries, found {calc_count}. Distribution: {dist}"
     )
 
 

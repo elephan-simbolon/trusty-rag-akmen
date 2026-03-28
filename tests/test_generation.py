@@ -1,6 +1,3 @@
-import pytest
-
-
 def test_citation_format_in_response():
     """GEN-01: Generated response includes citation in format: Author, Title, Chapter N, hal. X-Y."""
     from src.generation.citation_builder import build_citations
@@ -90,10 +87,14 @@ def test_build_citations_includes_author_field():
 
 def test_no_citation_text_block_in_response():
     """GEN-01: generate_response output does NOT contain '**Sumber Referensi:**' text block."""
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import patch
+
     from src.generation.generator import generate_response
 
-    mock_llm_result = {"text": "Test response about BEP.", "usage": {"prompt_tokens": 10, "completion_tokens": 20}}
+    mock_llm_result = {
+        "text": "Test response about BEP.",
+        "usage": {"prompt_tokens": 10, "completion_tokens": 20},
+    }
     mock_citations = [
         {
             "formatted": "Horngren, Cost Accounting, Chapter 5, hal. 168-170",
@@ -106,10 +107,11 @@ def test_no_citation_text_block_in_response():
         }
     ]
 
-    with patch("src.generation.generator.generate", return_value=mock_llm_result), \
-         patch("src.generation.generator.build_citations", return_value=mock_citations), \
-         patch("src.generation.generator.update_token_usage", return_value=None):
-
+    with (
+        patch("src.generation.generator.generate", return_value=mock_llm_result),
+        patch("src.generation.generator.build_citations", return_value=mock_citations),
+        patch("src.generation.generator.update_token_usage", return_value=None),
+    ):
         result = generate_response(query="test", context_docs=[{"text": "doc", "metadata": {}}])
 
     assert "**Sumber Referensi:**" not in result["response"]

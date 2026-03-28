@@ -1,6 +1,6 @@
-import pytest
-from unittest.mock import patch, MagicMock
-from src.generation.generator import generate_response, _build_context_block
+from unittest.mock import patch
+
+from src.generation.generator import generate_response
 
 MOCK_VECTOR_DOCS = [
     {
@@ -41,22 +41,23 @@ MOCK_GRAPH_CONTEXT = (
 def test_synthesis_uses_synthesis_prompt_when_graph_context_present(mock_generate):
     """When graph_context is non-empty, SYSTEM_PROMPT_SYNTHESIS is used."""
     mock_generate.return_value = "Menurut Horngren, ABC costing menggunakan cost drivers."
-    result = generate_response(
+    generate_response(
         query="bandingkan overhead allocation",
         context_docs=MOCK_VECTOR_DOCS,
         graph_context=MOCK_GRAPH_CONTEXT,
     )
-    # Verify the system prompt used is the synthesis one (contains "Atribusi per-sumber")
+    # Verify the system prompt used is the synthesis one (contains "textbook dan knowledge graph")
     call_args = mock_generate.call_args
     messages = call_args[0][0] if call_args[0] else call_args[1]["messages"]
     system_msg = messages[0]["content"]
-    assert "Atribusi per-sumber" in system_msg
+    assert "textbook dan knowledge graph" in system_msg
+
 
 @patch("src.generation.generator.generate")
 def test_synthesis_includes_graph_context_in_user_message(mock_generate):
     """User message includes knowledge graph context block."""
     mock_generate.return_value = "Response text."
-    result = generate_response(
+    generate_response(
         query="test query",
         context_docs=MOCK_VECTOR_DOCS,
         graph_context=MOCK_GRAPH_CONTEXT,
@@ -68,11 +69,12 @@ def test_synthesis_includes_graph_context_in_user_message(mock_generate):
     assert "Konteks dari textbook passages:" in user_msg
     assert "Instruksi: Sebutkan secara eksplisit sumber textbook" in user_msg
 
+
 @patch("src.generation.generator.generate")
 def test_fallback_to_phase1_prompt_without_graph_context(mock_generate):
     """When graph_context is empty, falls back to Phase 1 SYSTEM_PROMPT_GENERATOR."""
     mock_generate.return_value = "Standard response."
-    result = generate_response(
+    generate_response(
         query="apa itu overhead?",
         context_docs=MOCK_VECTOR_DOCS,
         graph_context="",
@@ -80,10 +82,11 @@ def test_fallback_to_phase1_prompt_without_graph_context(mock_generate):
     call_args = mock_generate.call_args
     messages = call_args[0][0] if call_args[0] else call_args[1]["messages"]
     system_msg = messages[0]["content"]
-    # Phase 1 prompt does NOT contain "Atribusi per-sumber"
-    assert "Atribusi per-sumber" not in system_msg
+    # Phase 1 prompt does NOT contain "textbook dan knowledge graph" (synthesis marker)
+    assert "textbook dan knowledge graph" not in system_msg
     # Phase 1 prompt contains the standard generator instruction
-    assert "source citation" in system_msg or "Setiap jawaban HARUS menyertakan source citation" in system_msg
+    assert "berdasarkan textbook" in system_msg
+
 
 @patch("src.generation.generator.generate")
 def test_default_graph_context_is_empty_string(mock_generate):
@@ -95,6 +98,7 @@ def test_default_graph_context_is_empty_string(mock_generate):
     )
     assert "response" in result
     assert "citations" in result
+
 
 @patch("src.generation.generator.generate")
 def test_citations_built_from_context_docs_not_graph(mock_generate):
@@ -110,29 +114,36 @@ def test_citations_built_from_context_docs_not_graph(mock_generate):
     assert any("Horngren" in c for c in formatted_citations)
     assert any("Garrison" in c for c in formatted_citations)
 
+
 def test_system_prompt_synthesis_exists():
     """SYSTEM_PROMPT_SYNTHESIS is importable from config.prompts."""
     from config.prompts import SYSTEM_PROMPT_SYNTHESIS
-    assert "Atribusi per-sumber" in SYSTEM_PROMPT_SYNTHESIS
+
+    assert "textbook dan knowledge graph" in SYSTEM_PROMPT_SYNTHESIS
     assert "{glossary_snippet}" in SYSTEM_PROMPT_SYNTHESIS
     assert "knowledge graph" in SYSTEM_PROMPT_SYNTHESIS
+
 
 def test_system_prompt_synthesis_has_relational_instruction():
     """Synthesis prompt contains instruction for relational query handling."""
     from config.prompts import SYSTEM_PROMPT_SYNTHESIS
+
     assert "relasional" in SYSTEM_PROMPT_SYNTHESIS
     assert "hubungan konseptual" in SYSTEM_PROMPT_SYNTHESIS
+
 
 def test_system_prompt_synthesis_has_comparison_instruction():
     """Synthesis prompt contains instruction for comparison query handling."""
     from config.prompts import SYSTEM_PROMPT_SYNTHESIS
+
     assert "perbandingan" in SYSTEM_PROMPT_SYNTHESIS
     assert "perspektif setiap sumber" in SYSTEM_PROMPT_SYNTHESIS
 
 
 # --- generate_node integration tests ---
 
-from src.agents.nodes import generate_node
+from src.agents.nodes import generate_node  # noqa: E402
+
 
 @patch("src.agents.nodes.generate_response")
 def test_generate_node_passes_graph_context(mock_gen_resp):
@@ -144,7 +155,7 @@ def test_generate_node_passes_graph_context(mock_gen_resp):
         "graph_docs": [{"text": "Graph context about overhead.", "metadata": {}, "score": 1.0}],
         "error": None,
     }
-    result = generate_node(state)
+    generate_node(state)
     mock_gen_resp.assert_called_once()
     call_kwargs = mock_gen_resp.call_args
     # Check graph_context was passed
@@ -152,6 +163,7 @@ def test_generate_node_passes_graph_context(mock_gen_resp):
         assert call_kwargs[1].get("graph_context") == "Graph context about overhead."
     else:
         assert call_kwargs[0][2] == "Graph context about overhead."
+
 
 @patch("src.agents.nodes.generate_response")
 def test_generate_node_empty_graph_docs_passes_empty_string(mock_gen_resp):
@@ -163,12 +175,13 @@ def test_generate_node_empty_graph_docs_passes_empty_string(mock_gen_resp):
         "graph_docs": [],
         "error": None,
     }
-    result = generate_node(state)
+    generate_node(state)
     call_kwargs = mock_gen_resp.call_args
     if call_kwargs[1]:
         assert call_kwargs[1].get("graph_context", "") == ""
     else:
         assert len(call_kwargs[0]) < 3 or call_kwargs[0][2] == ""
+
 
 @patch("src.agents.nodes.generate_response")
 def test_generate_node_no_graph_docs_key_backward_compat(mock_gen_resp):

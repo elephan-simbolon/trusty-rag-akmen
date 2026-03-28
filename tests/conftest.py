@@ -1,6 +1,6 @@
-import pytest
 from unittest.mock import MagicMock, patch
-from pathlib import Path
+
+import pytest
 
 
 @pytest.fixture
@@ -14,7 +14,7 @@ def sample_pdf_path(tmp_path):
 @pytest.fixture
 def sample_markdown():
     """Sample parsed Markdown with page markers and mixed content."""
-    return '''# Chapter 5: Break-Even Analysis
+    return """# Chapter 5: Break-Even Analysis
 <!-- PAGE_START:168 -->
 Break-even point (*titik impas*) adalah volume penjualan di mana total revenue sama dengan total cost.
 
@@ -38,7 +38,7 @@ Penjelasan: BEP unit dihitung dengan membagi biaya tetap total dengan margin kon
 ## Contoh Soal
 
 PT Maju memiliki biaya tetap Rp 100.000.000 dan margin kontribusi per unit Rp 30.000. Hitung BEP.
-'''
+"""
 
 
 @pytest.fixture
@@ -55,7 +55,9 @@ def mock_siliconflow():
         # Mock chat completion response
         chat_response = MagicMock()
         chat_choice = MagicMock()
-        chat_choice.message.content = "Test response with citation: Horngren, *Cost Accounting*, Chapter 5, hal. 168-170"
+        chat_choice.message.content = (
+            "Test response with citation: Horngren, *Cost Accounting*, Chapter 5, hal. 168-170"
+        )
         chat_response.choices = [chat_choice]
         client.chat.completions.create.return_value = chat_response
         mock.return_value = client
@@ -98,7 +100,7 @@ def sample_chunks():
                 "content_type": "narrative_text",
                 "page_start": 168,
                 "page_end": 170,
-            }
+            },
         },
         {
             "text": "$$BEP = \\frac{Fixed Cost}{Price - Variable Cost per Unit}$$\nBEP unit dihitung dengan membagi biaya tetap total dengan margin kontribusi per unit.",
@@ -110,6 +112,6 @@ def sample_chunks():
                 "content_type": "formula",
                 "page_start": 169,
                 "page_end": 169,
-            }
+            },
         },
     ]

@@ -1,8 +1,13 @@
 import logging
-from config.prompts import SYSTEM_PROMPT_GENERATOR, SYSTEM_PROMPT_SYNTHESIS, SYSTEM_PROMPT_GENERATOR_CALCULATION
+
 from config.glossary import GLOSSARY
-from src.llm.client import generate
+from config.prompts import (
+    SYSTEM_PROMPT_GENERATOR,
+    SYSTEM_PROMPT_GENERATOR_CALCULATION,
+    SYSTEM_PROMPT_SYNTHESIS,
+)
 from src.generation.citation_builder import build_citations
+from src.llm.client import generate
 from src.monitoring.langfuse_client import update_token_usage
 
 logger = logging.getLogger(__name__)

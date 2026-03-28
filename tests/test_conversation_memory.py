@@ -5,15 +5,16 @@ Covers:
 - Two invocations with different thread_ids have isolated histories
 - Annotated[list, operator.add] reducer accumulates correctly in RAGState
 """
-import pytest
-from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
-from src.agents.state import RAGState
 
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import END, StateGraph
+
+from src.agents.state import RAGState
 
 # ---------------------------------------------------------------------------
 # Minimal test graph that exercises MemorySaver + RAGState
 # ---------------------------------------------------------------------------
+
 
 def _make_test_graph():
     """Minimal 2-node graph using RAGState + MemorySaver for conversation memory tests.
@@ -22,6 +23,7 @@ def _make_test_graph():
     1. Annotated[list, operator.add] reducer accumulates across invocations
     2. Thread isolation works correctly
     """
+
     def mock_route(state):
         return {
             "query_type": "Simple",
@@ -53,6 +55,7 @@ def _make_test_graph():
 # ---------------------------------------------------------------------------
 # Test: Conversation history accumulates with same thread_id
 # ---------------------------------------------------------------------------
+
 
 def test_conversation_history_accumulates_across_invocations():
     """Two invocations with same thread_id accumulate conversation_history.
@@ -104,7 +107,7 @@ def test_conversation_history_grows_with_each_turn():
         current_length = len(result.get("conversation_history", []))
         expected_length = (i + 1) * 2
         assert current_length == expected_length, (
-            f"After turn {i+1}, expected {expected_length} items, got {current_length}"
+            f"After turn {i + 1}, expected {expected_length} items, got {current_length}"
         )
         assert current_length > prev_length, "History should grow with each turn"
         prev_length = current_length
@@ -130,6 +133,7 @@ def test_conversation_history_contains_correct_roles():
 # ---------------------------------------------------------------------------
 # Test: Thread isolation — different thread_ids have separate histories
 # ---------------------------------------------------------------------------
+
 
 def test_different_thread_ids_have_isolated_histories():
     """Two invocations with different thread_ids have independent conversation histories."""
@@ -158,12 +162,8 @@ def test_different_thread_ids_have_isolated_histories():
     history_b = result_b.get("conversation_history", [])
 
     # Thread A has 4 items (2 turns), Thread B has 2 items (1 turn)
-    assert len(history_a) == 4, (
-        f"Thread A: expected 4 items after 2 turns, got {len(history_a)}"
-    )
-    assert len(history_b) == 2, (
-        f"Thread B: expected 2 items after 1 turn, got {len(history_b)}"
-    )
+    assert len(history_a) == 4, f"Thread A: expected 4 items after 2 turns, got {len(history_a)}"
+    assert len(history_b) == 2, f"Thread B: expected 2 items after 1 turn, got {len(history_b)}"
 
     # Thread B should NOT contain Thread A's queries
     b_contents = " ".join(m["content"] for m in history_b)
@@ -191,12 +191,14 @@ def test_new_thread_starts_with_empty_history():
 # Test: Annotated[list, operator.add] reducer behavior directly
 # ---------------------------------------------------------------------------
 
+
 def test_annotated_list_reducer_accumulates_correctly():
     """Direct test: Annotated[list, operator.add] reducer in RAGState accumulates correctly.
 
     This validates the TypedDict-level behavior independent of the full graph.
     """
     import operator
+
     # Simulate what LangGraph does: apply operator.add reducer
     existing = [{"role": "user", "content": "Q1"}, {"role": "assistant", "content": "A1"}]
     new_items = [{"role": "user", "content": "Q2"}, {"role": "assistant", "content": "A2"}]

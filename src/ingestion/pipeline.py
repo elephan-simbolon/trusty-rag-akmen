@@ -1,27 +1,28 @@
 """End-to-end ingestion pipeline: PDF -> parse -> chunk -> embed+upload -> Qdrant."""
+
 import json
 import logging
 from functools import partial
 from pathlib import Path
 
 from config.settings import settings
-from src.ingestion.parsing.router import route_and_parse
-from src.ingestion.parsing.vlm_captioner import extract_and_caption_diagrams
-from src.ingestion.chunking.structure_splitter import split_by_headings
 from src.ingestion.chunking.classifier import classify_element
 from src.ingestion.chunking.content_splitter import split_content_by_type
-from src.ingestion.chunking.hierarchy_builder import build_hierarchy
 from src.ingestion.chunking.formula_indexer import create_formula_index
+from src.ingestion.chunking.hierarchy_builder import build_hierarchy
 from src.ingestion.chunking.metadata_enricher import enrich_metadata
+from src.ingestion.chunking.structure_splitter import split_by_headings
 from src.ingestion.indexing.embedder import embed_chunks_batch
-from src.services.qdrant_service import get_qdrant_client
 from src.ingestion.indexing.qdrant_uploader import (
-    create_collection,
-    upload_batch,
-    health_check,
     check_book_exists,
+    create_collection,
     delete_book,
+    health_check,
+    upload_batch,
 )
+from src.ingestion.parsing.router import route_and_parse
+from src.ingestion.parsing.vlm_captioner import extract_and_caption_diagrams
+from src.services.qdrant_service import get_qdrant_client
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,9 @@ def run_ingestion_pipeline(
         if client.collection_exists(settings.qdrant_collection_name):
             if check_book_exists(client, book_title):
                 if not replace_existing:
-                    logger.warning(f"SKIPPED: Book '{book_title}' already exists. Use --replace to re-ingest.")
+                    logger.warning(
+                        f"SKIPPED: Book '{book_title}' already exists. Use --replace to re-ingest."
+                    )
                     return {
                         "pdf_path": str(pdf_path),
                         "parser_used": "skipped",
@@ -108,17 +111,19 @@ def run_ingestion_pipeline(
 
     for dc in diagram_captions:
         if not dc["caption"].startswith("[Captioning failed"):
-            all_chunks.append({
-                "text": dc["caption"],
-                "metadata": {
-                    "book_title": book_title,
-                    "chapter": "Diagrams",
-                    "section_path": f"{book_title} > Diagrams",
-                    "content_type": "diagram",
-                    "page_start": 0,
-                    "page_end": 0,
+            all_chunks.append(
+                {
+                    "text": dc["caption"],
+                    "metadata": {
+                        "book_title": book_title,
+                        "chapter": "Diagrams",
+                        "section_path": f"{book_title} > Diagrams",
+                        "content_type": "diagram",
+                        "page_start": 0,
+                        "page_end": 0,
+                    },
                 }
-            })
+            )
 
     logger.info(f"Total chunks after splitting: {len(all_chunks)}")
 
@@ -126,9 +131,7 @@ def run_ingestion_pipeline(
     logger.info("[5/9] Building parent-child hierarchy...")
     hierarchy_nodes = build_hierarchy(all_chunks)
     child_chunks = [
-        {"text": n.text, "metadata": n.metadata}
-        for n in hierarchy_nodes
-        if n.node_type == "child"
+        {"text": n.text, "metadata": n.metadata} for n in hierarchy_nodes if n.node_type == "child"
     ]
     if not child_chunks:
         child_chunks = all_chunks
@@ -162,10 +165,7 @@ def run_ingestion_pipeline(
 
     # Step 7: Save chunks locally (backup before embedding)
     chunks_file = Path(chunks_dir) / f"{pdf_stem}_chunks.json"
-    serializable = [
-        {"text": c["text"], "metadata": c["metadata"]}
-        for c in child_chunks
-    ]
+    serializable = [{"text": c["text"], "metadata": c["metadata"]} for c in child_chunks]
     chunks_file.write_text(json.dumps(serializable, indent=2, ensure_ascii=False), encoding="utf-8")
     logger.info(f"[7/9] Saved {len(child_chunks)} chunks to {chunks_file}")
 

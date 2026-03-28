@@ -4,11 +4,11 @@ Tests for build_contextual_text() and use_contextual_window support in embed_chu
 Contextual window is an API-compatible alternative to true late chunking: each child chunk
 is embedded with its parent section text prepended as context.
 """
-import pytest
-from unittest.mock import patch, MagicMock
 
+from unittest.mock import patch
 
 # --- Tests for build_contextual_text ---
+
 
 def test_contextual_text_prepend():
     """build_contextual_text returns string starting with '[Context: ...' and containing chunk text."""
@@ -29,7 +29,9 @@ def test_contextual_text_length():
     # Create a 1000-word parent text
     parent_text = " ".join([f"word{i}" for i in range(1000)])
     chunk_text = "The actual chunk content."
-    result = build_contextual_text(chunk_text=chunk_text, parent_text=parent_text, max_context_words=256)
+    result = build_contextual_text(
+        chunk_text=chunk_text, parent_text=parent_text, max_context_words=256
+    )
 
     # Extract the context part between "[Context: " and "]\n\n"
     context_start = len("[Context: ")
@@ -61,6 +63,7 @@ def test_contextual_text_whitespace_only_parent():
 
 
 # --- Tests for embed_chunks_batch with contextual window ---
+
 
 def test_embed_chunks_batch_default_no_contextual():
     """embed_chunks_batch with use_contextual_window=False passes raw chunk texts to embed_batch."""
@@ -125,7 +128,9 @@ def test_embed_chunks_batch_contextual_window():
             },
         },
     ]
-    parent_texts = {"Chapter 5 > BEP": "Chapter 5 covers cost-volume-profit analysis and break-even relationships."}
+    parent_texts = {
+        "Chapter 5 > BEP": "Chapter 5 covers cost-volume-profit analysis and break-even relationships."
+    }
 
     captured_texts = []
 
@@ -172,7 +177,7 @@ def test_embed_chunks_batch_contextual_missing_section():
         return [[0.1] * 1024 for _ in texts]
 
     with patch("src.ingestion.indexing.embedder.embed_batch", side_effect=mock_embed_batch):
-        result = embed_chunks_batch(
+        embed_chunks_batch(
             chunks,
             use_contextual_window=True,
             parent_texts=parent_texts,

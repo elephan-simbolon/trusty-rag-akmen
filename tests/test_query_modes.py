@@ -11,15 +11,18 @@ correct LightRAG query mode based on query content:
 These are integration-level tests that cover the full state flow through the
 node, complementing the unit-level tests in test_graph_retrieve.py.
 """
-import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
-from src.agents.nodes import graph_retrieve_node
-from src.agents.state import RAGState
 
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from src.agents.nodes import graph_retrieve_node
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mock_lightrag():
@@ -43,18 +46,15 @@ def _run_node(query: str, extra_state: dict = None):
     if extra_state:
         state.update(extra_state)
 
-    with patch("src.agents.nodes._get_lightrag", return_value=mock_rag):
-        with patch(
-            "src.agents.nodes.asyncio.run",
-            side_effect=lambda coro: "Mock graph result.",
-        ):
-            result = graph_retrieve_node(state)
+    with patch("src.agents.nodes.get_lightrag", return_value=mock_rag):
+        result = asyncio.run(graph_retrieve_node(state))
     return result
 
 
 # ---------------------------------------------------------------------------
 # Mode routing — relational keywords select "local"
 # ---------------------------------------------------------------------------
+
 
 def test_relational_keyword_hubungan_triggers_local_mode():
     """Query containing 'hubungan' selects local mode in full node state flow."""
@@ -96,6 +96,7 @@ def test_relational_keyword_dasar_dari_triggers_local_mode():
 # Mode routing — non-relational queries default to "hybrid"
 # ---------------------------------------------------------------------------
 
+
 def test_non_relational_query_defaults_to_hybrid_mode():
     """Plain definition query defaults to hybrid mode."""
     result = _run_node("apa itu activity-based costing?")
@@ -118,6 +119,7 @@ def test_calculation_query_defaults_to_hybrid_mode():
 # Explicit query_mode in state is respected for non-relational queries
 # ---------------------------------------------------------------------------
 
+
 def test_explicit_query_mode_local_respected_for_non_relational_query():
     """When state sets query_mode='local' and query is non-relational, local is used."""
     result = _run_node(
@@ -139,6 +141,7 @@ def test_explicit_query_mode_hybrid_respected():
 # ---------------------------------------------------------------------------
 # Full state flow: graph_docs shape and content after mode selection
 # ---------------------------------------------------------------------------
+
 
 def test_local_mode_query_returns_non_empty_graph_docs():
     """Relational query (local mode) returns non-empty graph_docs in state."""
@@ -169,7 +172,14 @@ def test_graph_docs_have_required_metadata_keys():
     """graph_docs entries contain all required metadata keys."""
     result = _run_node("apa itu standard costing?")
     meta = result["graph_docs"][0]["metadata"]
-    required_keys = ["book_title", "chapter", "content_type", "page_start", "page_end", "section_path"]
+    required_keys = [
+        "book_title",
+        "chapter",
+        "content_type",
+        "page_start",
+        "page_end",
+        "section_path",
+    ]
     for key in required_keys:
         assert key in meta, f"Missing metadata key: {key}"
 

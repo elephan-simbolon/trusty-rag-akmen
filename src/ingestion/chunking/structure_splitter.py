@@ -1,5 +1,5 @@
-import re
 import logging
+import re
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
@@ -43,12 +43,14 @@ def split_by_headings(markdown_text: str, book_title: str = "", chapter: str = "
                 sections.append(current_section)
             elif content_lines:
                 # Content before first heading
-                sections.append(Section(
-                    title="(preamble)",
-                    level=0,
-                    content="\n".join(content_lines).strip(),
-                    breadcrumb=[h[1] for h in heading_stack],
-                ))
+                sections.append(
+                    Section(
+                        title="(preamble)",
+                        level=0,
+                        content="\n".join(content_lines).strip(),
+                        breadcrumb=[h[1] for h in heading_stack],
+                    )
+                )
 
             level = len(match.group(1))
             title = match.group(2).strip()
@@ -75,12 +77,14 @@ def split_by_headings(markdown_text: str, book_title: str = "", chapter: str = "
         current_section.content = "\n".join(content_lines).strip()
         sections.append(current_section)
     elif content_lines:
-        sections.append(Section(
-            title="(preamble)",
-            level=0,
-            content="\n".join(content_lines).strip(),
-            breadcrumb=[h[1] for h in heading_stack],
-        ))
+        sections.append(
+            Section(
+                title="(preamble)",
+                level=0,
+                content="\n".join(content_lines).strip(),
+                breadcrumb=[h[1] for h in heading_stack],
+            )
+        )
 
     logger.info(f"Split into {len(sections)} sections by heading hierarchy")
     return sections

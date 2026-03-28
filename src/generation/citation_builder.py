@@ -47,15 +47,17 @@ def build_citations(docs: list[dict]) -> list[dict]:
         seen.add(key)
 
         formatted = build_citation(metadata)
-        citations.append({
-            "formatted": formatted,
-            "book_title": metadata.get("book_title", ""),
-            "chapter": metadata.get("chapter", ""),
-            "page_start": metadata.get("page_start", 0),
-            "page_end": metadata.get("page_end", 0),
-            "section_path": metadata.get("section_path", ""),
-            "author": metadata.get("author", ""),
-        })
+        citations.append(
+            {
+                "formatted": formatted,
+                "book_title": metadata.get("book_title", ""),
+                "chapter": metadata.get("chapter", ""),
+                "page_start": metadata.get("page_start", 0),
+                "page_end": metadata.get("page_end", 0),
+                "section_path": metadata.get("section_path", ""),
+                "author": metadata.get("author", ""),
+            }
+        )
 
     logger.info(f"Built {len(citations)} citations from {len(docs)} docs")
     return citations

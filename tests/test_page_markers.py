@@ -1,5 +1,8 @@
-import pytest
-from src.ingestion.chunking.page_markers import inject_page_markers, extract_page_range, strip_page_markers
+from src.ingestion.chunking.page_markers import (
+    extract_page_range,
+    inject_page_markers,
+    strip_page_markers,
+)
 
 
 def test_inject_page_markers():

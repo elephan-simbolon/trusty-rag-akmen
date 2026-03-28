@@ -1,13 +1,14 @@
 import struct
 import zlib
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from config.settings import settings
 
 
 def _make_minimal_png(path: Path) -> None:
     """Write a valid 1x1 pixel red PNG to path."""
+
     def make_chunk(chunk_type: bytes, data: bytes) -> bytes:
         length = struct.pack(">I", len(data))
         crc = struct.pack(">I", zlib.crc32(chunk_type + data) & 0xFFFFFFFF)
@@ -16,7 +17,7 @@ def _make_minimal_png(path: Path) -> None:
     signature = b"\x89PNG\r\n\x1a\n"
     ihdr_data = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
     ihdr = make_chunk(b"IHDR", ihdr_data)
-    raw_pixel = b"\x00\xFF\x00\x00"  # filter byte + R, G, B
+    raw_pixel = b"\x00\xff\x00\x00"  # filter byte + R, G, B
     compressed = zlib.compress(raw_pixel)
     idat = make_chunk(b"IDAT", compressed)
     iend = make_chunk(b"IEND", b"")
@@ -63,7 +64,9 @@ def test_diagram_image_extraction(tmp_path):
     _make_minimal_png(img2)
 
     # Mock caption_diagram to return a fixed caption
-    with patch("src.ingestion.parsing.vlm_captioner.caption_diagram", return_value="Test caption") as mock_caption:
+    with patch(
+        "src.ingestion.parsing.vlm_captioner.caption_diagram", return_value="Test caption"
+    ) as mock_caption:
         results = extract_and_caption_diagrams(tmp_path)
 
     # Assert result is a list of 2 dicts

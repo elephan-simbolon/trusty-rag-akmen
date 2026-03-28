@@ -1,8 +1,9 @@
-import re
 import logging
+import re
 from enum import Enum
 
 logger = logging.getLogger(__name__)
+
 
 class ContentType(str, Enum):
     NARRATIVE_TEXT = "narrative_text"
@@ -11,18 +12,17 @@ class ContentType(str, Enum):
     DIAGRAM = "diagram"
     EXAMPLE_PROBLEM = "example_problem"
 
+
 # Regex patterns for content type detection
 TABLE_PATTERN = re.compile(r"^\|.*\|$", re.MULTILINE)
 TABLE_SEPARATOR = re.compile(r"^\|[\s\-:|]+\|$", re.MULTILINE)
 FORMULA_PATTERN = re.compile(r"\$\$.*?\$\$", re.DOTALL)
 INLINE_FORMULA = re.compile(r"(?<!\$)\$(?!\$).+?(?<!\$)\$(?!\$)")
 DIAGRAM_KEYWORDS = re.compile(
-    r"(?:diagram|flowchart|figure|gambar|bagan|grafik)\s*\d*",
-    re.IGNORECASE
+    r"(?:diagram|flowchart|figure|gambar|bagan|grafik)\s*\d*", re.IGNORECASE
 )
 EXAMPLE_KEYWORDS = re.compile(
-    r"(?:example|contoh|soal|exercise|illustration|ilustrasi|problem)\s*\d*[.:]",
-    re.IGNORECASE
+    r"(?:example|contoh|soal|exercise|illustration|ilustrasi|problem)\s*\d*[.:]", re.IGNORECASE
 )
 
 

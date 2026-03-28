@@ -1,6 +1,8 @@
 """Docling PDF parser with PyPdfium2 backend for memory-safe large PDF processing."""
-from pathlib import Path
+
 import logging
+from pathlib import Path
+
 from src.ingestion.parsing.gpu_utils import vram_cleanup
 
 logger = logging.getLogger(__name__)
@@ -8,13 +10,15 @@ logger = logging.getLogger(__name__)
 
 def parse_with_docling(pdf_path: str, output_dir: str) -> dict:
     """Parse a text-based PDF using Docling with CUDA + PyPdfium2 backend."""
-    from docling.document_converter import DocumentConverter, PdfFormatOption
     from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
     from docling.datamodel.base_models import InputFormat
     from docling.datamodel.pipeline_options import (
-        PdfPipelineOptions, AcceleratorOptions, AcceleratorDevice,
+        AcceleratorDevice,
+        AcceleratorOptions,
+        PdfPipelineOptions,
         RapidOcrOptions,
     )
+    from docling.document_converter import DocumentConverter, PdfFormatOption
 
     pipeline_options = PdfPipelineOptions(
         accelerator_options=AcceleratorOptions(

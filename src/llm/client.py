@@ -10,6 +10,7 @@ Key asymmetry:
 - embed_query: ALWAYS prepends instruction prefix (improves recall 1-5%)
 - embed_document: NO prefix (documents are indexed as-is)
 """
+
 import logging
 
 import httpx
@@ -135,7 +136,9 @@ def embed_batch(texts: list[str], is_query: bool = False) -> list[list[float]]:
 
 
 @retry(**_UI_RETRY_CONFIG)
-def generate(messages: list[dict], temperature: float = 0.3, return_usage: bool = False) -> "str | dict":
+def generate(
+    messages: list[dict], temperature: float = 0.3, return_usage: bool = False
+) -> "str | dict":
     """Generate a response using the configured LLM.
 
     Args:
@@ -184,9 +187,7 @@ def rerank(query: str, documents: list[str], top_k: int = 5) -> list[dict]:
     """
     response = httpx.post(
         f"{settings.siliconflow_base_url}/rerank",
-        headers={
-            "Authorization": f"Bearer {settings.siliconflow_api_key.get_secret_value()}"
-        },
+        headers={"Authorization": f"Bearer {settings.siliconflow_api_key.get_secret_value()}"},
         json={
             "model": settings.reranker_model,
             "query": query,

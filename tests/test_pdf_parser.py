@@ -1,4 +1,3 @@
-import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -6,6 +5,7 @@ from unittest.mock import MagicMock, patch
 def test_pymupdf_classifies_text_pdf(tmp_path):
     """INGEST-03: PyMuPDF correctly classifies text-based vs scanned PDF."""
     import pymupdf
+
     from src.ingestion.parsing.router import classify_pdf
 
     # Create a text-heavy PDF with enough characters per page
@@ -43,7 +43,9 @@ def test_docling_parses_text_pdf(tmp_path):
     """INGEST-01: Docling parses a text-based PDF and returns structured Markdown."""
     import sys
 
-    sample_markdown = "# Chapter 5: Break-Even Analysis\n\nBreak-even point is where revenue equals cost.\n"
+    sample_markdown = (
+        "# Chapter 5: Break-Even Analysis\n\nBreak-even point is where revenue equals cost.\n"
+    )
     pdf_path = str(tmp_path / "test.pdf")
     output_dir = str(tmp_path / "output")
 
@@ -89,7 +91,9 @@ def test_docling_parses_text_pdf(tmp_path):
     with patch.dict(sys.modules, fake_modules):
         # Force reimport of docling_parser with the mocked modules
         import importlib
+
         import src.ingestion.parsing.docling_parser as dp_module
+
         importlib.reload(dp_module)
 
         with patch.object(dp_module, "vram_cleanup") as mock_cleanup:
@@ -111,8 +115,8 @@ def test_docling_parses_text_pdf(tmp_path):
 
 def test_mineru_subprocess_isolation(tmp_path):
     """INGEST-02: MinerU runs in a subprocess to avoid VRAM fragmentation (issue #3399)."""
-    import subprocess
     from unittest.mock import MagicMock
+
     from src.ingestion.parsing.mineru_parser import parse_with_mineru
 
     pdf_path = str(tmp_path / "scanned_book.pdf")
@@ -140,7 +144,9 @@ def test_mineru_subprocess_isolation(tmp_path):
         captured_env.update(kwargs.get("env", {}))
         return mock_result
 
-    with patch("src.ingestion.parsing.mineru_parser.subprocess.run", side_effect=fake_subprocess_run) as mock_run:
+    with patch(
+        "src.ingestion.parsing.mineru_parser.subprocess.run", side_effect=fake_subprocess_run
+    ) as mock_run:
         result = parse_with_mineru(pdf_path, output_dir)
 
     # Assert subprocess was called

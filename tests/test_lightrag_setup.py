@@ -8,6 +8,7 @@ Tests verify:
 - LightRAG constructor parameters: max_async=16, max_parallel_insert=4,
   entity_extract_max_gleaning=0, no insert_batch_size in addon_params
 """
+
 import asyncio
 import inspect
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -45,6 +46,7 @@ def test_llm_model_func_is_async(mock_lightrag_cls):
     mock_instance.initialize_storages = AsyncMock()
     mock_lightrag_cls.return_value = mock_instance
     from src.knowledge_graph.lightrag_client import build_lightrag_instance
+
     asyncio.run(build_lightrag_instance())
     kwargs = mock_lightrag_cls.call_args[1]
     assert inspect.iscoroutinefunction(kwargs["llm_model_func"])
@@ -57,6 +59,7 @@ def test_lightrag_config_max_async(mock_lightrag_cls):
     mock_instance.initialize_storages = AsyncMock()
     mock_lightrag_cls.return_value = mock_instance
     from src.knowledge_graph.lightrag_client import build_lightrag_instance
+
     asyncio.run(build_lightrag_instance())
     kwargs = mock_lightrag_cls.call_args[1]
     assert kwargs["llm_model_max_async"] == 16
@@ -69,6 +72,7 @@ def test_lightrag_config_max_parallel_insert(mock_lightrag_cls):
     mock_instance.initialize_storages = AsyncMock()
     mock_lightrag_cls.return_value = mock_instance
     from src.knowledge_graph.lightrag_client import build_lightrag_instance
+
     asyncio.run(build_lightrag_instance())
     kwargs = mock_lightrag_cls.call_args[1]
     assert kwargs["max_parallel_insert"] == 4
@@ -81,6 +85,7 @@ def test_lightrag_config_gleaning_zero(mock_lightrag_cls):
     mock_instance.initialize_storages = AsyncMock()
     mock_lightrag_cls.return_value = mock_instance
     from src.knowledge_graph.lightrag_client import build_lightrag_instance
+
     asyncio.run(build_lightrag_instance())
     kwargs = mock_lightrag_cls.call_args[1]
     assert kwargs["entity_extract_max_gleaning"] == 0
@@ -93,6 +98,7 @@ def test_lightrag_config_no_insert_batch_size_in_addon(mock_lightrag_cls):
     mock_instance.initialize_storages = AsyncMock()
     mock_lightrag_cls.return_value = mock_instance
     from src.knowledge_graph.lightrag_client import build_lightrag_instance
+
     asyncio.run(build_lightrag_instance())
     kwargs = mock_lightrag_cls.call_args[1]
     assert "insert_batch_size" not in kwargs["addon_params"]
@@ -111,6 +117,7 @@ def test_build_lightrag_does_not_call_initialize_storages(mock_lightrag_cls):
     mock_lightrag_cls.return_value = mock_instance
 
     from src.knowledge_graph.lightrag_client import build_lightrag_instance
+
     asyncio.run(build_lightrag_instance())
 
     mock_instance.initialize_storages.assert_not_called()

@@ -9,6 +9,7 @@ Provides:
 - embedding_func: Embedding function for LightRAG (Qwen3-Embedding-8B, 1024 dim)
 - build_lightrag_instance: Factory that initializes and returns a ready LightRAG instance
 """
+
 import logging
 
 import numpy as np

@@ -1,5 +1,4 @@
 import re
-from typing import Optional
 
 PAGE_MARKER_PATTERN = re.compile(r"<!-- PAGE_START:(\d+) -->")
 

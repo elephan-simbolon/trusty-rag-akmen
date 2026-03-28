@@ -1,7 +1,9 @@
 """Tests for session_id stability and Langfuse v4 metadata wiring (Phase 05.2)."""
+
 import inspect
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from backend.models import QueryRequest
 from src.monitoring.langfuse_client import get_langfuse_handler
@@ -36,16 +38,19 @@ async def test_query_sse_uses_session_id_as_thread_id():
     import sys
 
     mock_graph = MagicMock()
-    mock_graph.ainvoke = AsyncMock(return_value={
-        "response": "test response",
-        "citations": [],
-        "query_type": "Simple",
-        "crag_grade": "CORRECT",
-        "error": None,
-    })
+    mock_graph.ainvoke = AsyncMock(
+        return_value={
+            "response": "test response",
+            "citations": [],
+            "query_type": "Simple",
+            "crag_grade": "CORRECT",
+            "error": None,
+        }
+    )
 
     sse_stub_installed = False
     if "sse_starlette" not in sys.modules:
+
         class _FakeEventSourceResponse:
             def __init__(self, gen, *args, **kwargs):
                 self._gen = gen
@@ -64,10 +69,11 @@ async def test_query_sse_uses_session_id_as_thread_id():
         sys.modules.pop("backend.main", None)
         import backend.main as main_module
 
-        with patch("backend.main.get_graph", return_value=mock_graph), \
-             patch("backend.main.get_langfuse_handler", return_value=None), \
-             patch("backend.main.save_history", new_callable=AsyncMock, return_value="hist-1"):
-
+        with (
+            patch("backend.main.get_graph", return_value=mock_graph),
+            patch("backend.main.get_langfuse_handler", return_value=None),
+            patch("backend.main.save_history", new_callable=AsyncMock, return_value="hist-1"),
+        ):
             request = QueryRequest(question="test question", session_id="my-session-123")
             response = await main_module.query_sse(request)
             async for _ in response:
@@ -92,16 +98,19 @@ async def test_query_sse_passes_metadata_with_langfuse_keys():
     import sys
 
     mock_graph = MagicMock()
-    mock_graph.ainvoke = AsyncMock(return_value={
-        "response": "test response",
-        "citations": [],
-        "query_type": "Simple",
-        "crag_grade": "CORRECT",
-        "error": None,
-    })
+    mock_graph.ainvoke = AsyncMock(
+        return_value={
+            "response": "test response",
+            "citations": [],
+            "query_type": "Simple",
+            "crag_grade": "CORRECT",
+            "error": None,
+        }
+    )
 
     sse_stub_installed = False
     if "sse_starlette" not in sys.modules:
+
         class _FakeEventSourceResponse:
             def __init__(self, gen, *args, **kwargs):
                 self._gen = gen
@@ -120,10 +129,11 @@ async def test_query_sse_passes_metadata_with_langfuse_keys():
         sys.modules.pop("backend.main", None)
         import backend.main as main_module
 
-        with patch("backend.main.get_graph", return_value=mock_graph), \
-             patch("backend.main.get_langfuse_handler", return_value=None), \
-             patch("backend.main.save_history", new_callable=AsyncMock, return_value="hist-1"):
-
+        with (
+            patch("backend.main.get_graph", return_value=mock_graph),
+            patch("backend.main.get_langfuse_handler", return_value=None),
+            patch("backend.main.save_history", new_callable=AsyncMock, return_value="hist-1"),
+        ):
             request = QueryRequest(question="test question", session_id="my-session-123")
             response = await main_module.query_sse(request)
             async for _ in response:

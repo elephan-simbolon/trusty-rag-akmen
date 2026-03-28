@@ -1,6 +1,5 @@
-import gc
 import os
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 
 def test_vram_cleanup_sequence():
@@ -23,8 +22,10 @@ def test_vram_cleanup_sequence():
     mock_torch = MagicMock()
     mock_torch.cuda = mock_cuda
 
-    with patch.dict("sys.modules", {"torch": mock_torch}), \
-         patch("gc.collect", side_effect=mock_gc_collect):
+    with (
+        patch.dict("sys.modules", {"torch": mock_torch}),
+        patch("gc.collect", side_effect=mock_gc_collect),
+    ):
         gpu_utils.vram_cleanup()
 
     # Assert all three functions were called
@@ -43,6 +44,7 @@ def test_vram_cleanup_sequence():
 def test_vram_cleanup_between_parsers():
     """INGEST-04: VRAM cleanup env var PYTORCH_CUDA_ALLOC_CONF is set at module import time."""
     import importlib
+
     import src.ingestion.parsing.gpu_utils as gpu_utils
 
     # Reload the module to ensure the setdefault side effect is captured

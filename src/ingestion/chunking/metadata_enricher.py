@@ -1,12 +1,17 @@
 import logging
-from src.ingestion.chunking.page_markers import extract_page_range, strip_page_markers
+
 from src.ingestion.chunking.classifier import classify_element
+from src.ingestion.chunking.page_markers import extract_page_range, strip_page_markers
 
 logger = logging.getLogger(__name__)
 
 REQUIRED_METADATA_FIELDS = [
-    "book_title", "chapter", "section_path", "content_type",
-    "page_start", "page_end"
+    "book_title",
+    "chapter",
+    "section_path",
+    "content_type",
+    "page_start",
+    "page_end",
 ]
 
 

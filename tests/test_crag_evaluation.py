@@ -8,13 +8,13 @@ Covers:
 - generate_calc_node returns response with disclaimer text
 - generate_response accepts query_type stub without TypeError
 """
-import pytest
-from unittest.mock import patch, MagicMock
 
+from unittest.mock import patch
 
 # ---------------------------------------------------------------------------
 # crag_grade_node tests
 # ---------------------------------------------------------------------------
+
 
 class TestCragGradeNode:
     def test_grade_correct_high_score(self):
@@ -138,6 +138,7 @@ class TestCragGradeNode:
 # crag_router tests
 # ---------------------------------------------------------------------------
 
+
 class TestCragRouter:
     def test_route_correct_simple_to_generate(self):
         """CORRECT grade + Simple query_type → 'generate'."""
@@ -221,6 +222,7 @@ class TestCragRouter:
 # reformulate_node tests
 # ---------------------------------------------------------------------------
 
+
 class TestReformulateNode:
     def test_reformulate_overwrites_query_key(self):
         """reformulate_node writes to 'query' key (not a different key)."""
@@ -281,6 +283,7 @@ class TestReformulateNode:
 # generate_calc_node tests
 # ---------------------------------------------------------------------------
 
+
 class TestGenerateCalcNode:
     def test_generate_calc_returns_disclaimer(self):
         """generate_calc_node returns response containing disclaimer text."""
@@ -320,8 +323,9 @@ class TestGenerateCalcNode:
             generate_calc_node(state)
             mock_gen.assert_called_once()
             call_kwargs = mock_gen.call_args
-            assert call_kwargs.kwargs.get("query_type") == "Calculation" or \
-                   (len(call_kwargs.args) >= 4 and call_kwargs.args[3] == "Calculation")
+            assert call_kwargs.kwargs.get("query_type") == "Calculation" or (
+                len(call_kwargs.args) >= 4 and call_kwargs.args[3] == "Calculation"
+            )
 
     def test_generate_calc_increments_llm_call_count(self):
         """generate_calc_node increments llm_call_count."""
@@ -397,11 +401,13 @@ class TestGenerateCalcNode:
 # generate_response stub parameter test
 # ---------------------------------------------------------------------------
 
+
 class TestGenerateResponseQueryTypeStub:
     def test_generate_response_accepts_query_type_kwarg(self):
         """generate_response accepts query_type kwarg without TypeError (stub test)."""
-        from src.generation.generator import generate_response
         import inspect
+
+        from src.generation.generator import generate_response
 
         sig = inspect.signature(generate_response)
         assert "query_type" in sig.parameters, (
@@ -410,8 +416,9 @@ class TestGenerateResponseQueryTypeStub:
 
     def test_generate_response_query_type_has_default(self):
         """generate_response query_type has default value of 'Simple'."""
-        from src.generation.generator import generate_response
         import inspect
+
+        from src.generation.generator import generate_response
 
         sig = inspect.signature(generate_response)
         param = sig.parameters["query_type"]
@@ -423,12 +430,19 @@ class TestGenerateResponseQueryTypeStub:
         """generate_response with query_type='Calculation' produces same result as without (no-op stub)."""
         from src.generation.generator import generate_response
 
-        with patch("src.generation.generator.generate") as mock_generate, \
-             patch("src.generation.generator.build_citations") as mock_citations:
+        with (
+            patch("src.generation.generator.generate") as mock_generate,
+            patch("src.generation.generator.build_citations") as mock_citations,
+        ):
             mock_generate.return_value = "Test response"
             mock_citations.return_value = []
 
-            docs = [{"text": "some doc", "metadata": {"book_title": "Test", "chapter": "Ch1", "page_start": 1}}]
+            docs = [
+                {
+                    "text": "some doc",
+                    "metadata": {"book_title": "Test", "chapter": "Ch1", "page_start": 1},
+                }
+            ]
 
             result_default = generate_response(
                 query="test query",

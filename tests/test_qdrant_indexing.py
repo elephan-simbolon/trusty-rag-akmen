@@ -1,5 +1,6 @@
-from src.ingestion.indexing.qdrant_uploader import create_collection, upload_chunks
-from qdrant_client.models import ScalarType, ScalarQuantization
+from qdrant_client.models import ScalarQuantization, ScalarType
+
+from src.ingestion.indexing.qdrant_uploader import create_collection, upload_batch
 
 
 def test_collection_has_dense_and_sparse(mock_qdrant_client):
@@ -51,7 +52,7 @@ def test_payload_contains_metadata(mock_qdrant_client):
         },
     ]
 
-    upload_chunks(mock_qdrant_client, chunks)
+    upload_batch(mock_qdrant_client, chunks)
 
     assert mock_qdrant_client.upsert.called
 
@@ -59,7 +60,15 @@ def test_payload_contains_metadata(mock_qdrant_client):
     points = call_kwargs["points"]
     assert len(points) == 2
 
-    required_fields = {"book_title", "chapter", "section_path", "content_type", "page_start", "page_end", "text"}
+    required_fields = {
+        "book_title",
+        "chapter",
+        "section_path",
+        "content_type",
+        "page_start",
+        "page_end",
+        "text",
+    }
     for point in points:
         for field in required_fields:
             assert field in point.payload, f"Missing field '{field}' in payload"

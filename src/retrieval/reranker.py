@@ -1,6 +1,7 @@
 import logging
-from src.llm.client import rerank as llm_rerank
+
 from config.settings import settings
+from src.llm.client import rerank as llm_rerank
 
 logger = logging.getLogger(__name__)
 
@@ -35,10 +36,12 @@ def rerank_results(
         original_idx = r["index"]
         if original_idx < len(search_results):
             original = search_results[original_idx]
-            results.append({
-                **original,
-                "rerank_score": r["score"],
-            })
+            results.append(
+                {
+                    **original,
+                    "rerank_score": r["score"],
+                }
+            )
 
     logger.info(f"Reranked {len(search_results)} -> {len(results)} results")
     return results

@@ -10,11 +10,11 @@ flows through the full pipeline:
 
 No live API calls — all LightRAG, SiliconFlow interactions are mocked.
 """
-import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
-from src.agents.nodes import graph_retrieve_node, generate_node
-from src.agents.state import RAGState
 
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from src.agents.nodes import generate_node, graph_retrieve_node
 
 # ---------------------------------------------------------------------------
 # Shared test data
@@ -47,18 +47,15 @@ MOCK_GRAPH_RESULT = (
 # Stage 1: graph_retrieve_node uses local mode for relational query
 # ---------------------------------------------------------------------------
 
+
 def test_relational_query_triggers_local_mode_in_graph_retrieve_node():
     """graph_retrieve_node selects local mode when query contains 'hubungan'."""
     mock_rag = MagicMock()
     mock_rag.aquery = AsyncMock(return_value=MOCK_GRAPH_RESULT)
 
-    with patch("src.agents.nodes._get_lightrag", return_value=mock_rag):
-        with patch(
-            "src.agents.nodes.asyncio.run",
-            side_effect=lambda coro: MOCK_GRAPH_RESULT,
-        ):
-            state = {"query": RELATIONAL_QUERY, "error": None}
-            result = graph_retrieve_node(state)
+    with patch("src.agents.nodes.get_lightrag", return_value=mock_rag):
+        state = {"query": RELATIONAL_QUERY, "error": None}
+        result = asyncio.run(graph_retrieve_node(state))
 
     assert result.get("query_mode") == "local"
 
@@ -68,13 +65,9 @@ def test_relational_query_graph_retrieve_returns_non_empty_graph_docs():
     mock_rag = MagicMock()
     mock_rag.aquery = AsyncMock(return_value=MOCK_GRAPH_RESULT)
 
-    with patch("src.agents.nodes._get_lightrag", return_value=mock_rag):
-        with patch(
-            "src.agents.nodes.asyncio.run",
-            side_effect=lambda coro: MOCK_GRAPH_RESULT,
-        ):
-            state = {"query": RELATIONAL_QUERY, "error": None}
-            result = graph_retrieve_node(state)
+    with patch("src.agents.nodes.get_lightrag", return_value=mock_rag):
+        state = {"query": RELATIONAL_QUERY, "error": None}
+        result = asyncio.run(graph_retrieve_node(state))
 
     assert "graph_docs" in result
     graph_docs = result["graph_docs"]
@@ -87,13 +80,9 @@ def test_relational_query_graph_docs_contain_graph_result_text():
     mock_rag = MagicMock()
     mock_rag.aquery = AsyncMock(return_value=MOCK_GRAPH_RESULT)
 
-    with patch("src.agents.nodes._get_lightrag", return_value=mock_rag):
-        with patch(
-            "src.agents.nodes.asyncio.run",
-            side_effect=lambda coro: MOCK_GRAPH_RESULT,
-        ):
-            state = {"query": RELATIONAL_QUERY, "error": None}
-            result = graph_retrieve_node(state)
+    with patch("src.agents.nodes.get_lightrag", return_value=mock_rag):
+        state = {"query": RELATIONAL_QUERY, "error": None}
+        result = asyncio.run(graph_retrieve_node(state))
 
     assert "Cost Driver" in result["graph_docs"][0]["text"]
 
@@ -101,6 +90,7 @@ def test_relational_query_graph_docs_contain_graph_result_text():
 # ---------------------------------------------------------------------------
 # Stage 2: generate_node receives non-empty graph_context from graph_docs
 # ---------------------------------------------------------------------------
+
 
 def test_generate_node_receives_non_empty_graph_context_for_relational_query():
     """generate_node passes non-empty graph_context to generate_response for relational query."""
@@ -169,6 +159,7 @@ def test_generate_node_graph_context_contains_graph_docs_text():
 # Stage 3: generate_response uses synthesis prompt for relational query context
 # ---------------------------------------------------------------------------
 
+
 @patch("src.generation.generator.generate")
 def test_synthesis_prompt_used_when_graph_context_non_empty_for_relational_query(mock_llm):
     """generate_response uses SYSTEM_PROMPT_SYNTHESIS (not SYSTEM_PROMPT_GENERATOR)
@@ -177,7 +168,7 @@ def test_synthesis_prompt_used_when_graph_context_non_empty_for_relational_query
 
     from src.generation.generator import generate_response
 
-    result = generate_response(
+    generate_response(
         query=RELATIONAL_QUERY,
         context_docs=MOCK_VECTOR_DOCS,
         graph_context=MOCK_GRAPH_RESULT,
@@ -187,8 +178,8 @@ def test_synthesis_prompt_used_when_graph_context_non_empty_for_relational_query
     messages = call_args[0][0] if call_args[0] else call_args[1]["messages"]
     system_msg = messages[0]["content"]
 
-    # Synthesis prompt is used (contains per-author attribution rule)
-    assert "Atribusi per-sumber" in system_msg
+    # Synthesis prompt is used (distinct from SYSTEM_PROMPT_GENERATOR)
+    assert "textbook dan knowledge graph" in system_msg
     # Relational query instruction present in synthesis prompt
     assert "relasional" in system_msg
     assert "hubungan konseptual" in system_msg
@@ -201,7 +192,7 @@ def test_user_message_contains_graph_context_for_relational_query(mock_llm):
 
     from src.generation.generator import generate_response
 
-    result = generate_response(
+    generate_response(
         query=RELATIONAL_QUERY,
         context_docs=MOCK_VECTOR_DOCS,
         graph_context=MOCK_GRAPH_RESULT,
@@ -219,6 +210,7 @@ def test_user_message_contains_graph_context_for_relational_query(mock_llm):
 # Full pipeline integration: graph_retrieve -> generate (chained state)
 # ---------------------------------------------------------------------------
 
+
 def test_full_relational_pipeline_graph_context_reaches_generate_response():
     """Full pipeline: relational query state flows from graph_retrieve_node output
     into generate_node, which passes non-empty graph_context to generate_response."""
@@ -229,18 +221,11 @@ def test_full_relational_pipeline_graph_context_reaches_generate_response():
         return {"response": "Final synthesis.", "citations": []}
 
     # Step 1: simulate graph_retrieve_node output
-    graph_state = {
-        "query": RELATIONAL_QUERY,
-        "error": None,
-    }
-    with patch("src.agents.nodes._get_lightrag") as mock_get_rag:
-        mock_rag = MagicMock()
-        mock_get_rag.return_value = mock_rag
-        with patch(
-            "src.agents.nodes.asyncio.run",
-            side_effect=lambda coro: MOCK_GRAPH_RESULT,
-        ):
-            graph_result = graph_retrieve_node(graph_state)
+    mock_rag = MagicMock()
+    mock_rag.aquery = AsyncMock(return_value=MOCK_GRAPH_RESULT)
+
+    with patch("src.agents.nodes.get_lightrag", return_value=mock_rag):
+        graph_result = asyncio.run(graph_retrieve_node({"query": RELATIONAL_QUERY, "error": None}))
 
     # Step 2: merge graph_retrieve output into state for generate_node
     full_state = {

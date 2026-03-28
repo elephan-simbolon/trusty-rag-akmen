@@ -7,6 +7,7 @@ Tests verify:
 - Unknown terms pass through unchanged
 - ACCOUNTING_CANONICAL has minimum 25 mappings
 """
+
 from src.knowledge_graph.entity_normalizer import ACCOUNTING_CANONICAL, normalize_entity_name
 
 

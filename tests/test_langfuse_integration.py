@@ -9,13 +9,13 @@ Tests cover:
 
 No live Langfuse connection required — all langfuse imports are mocked.
 """
-import pytest
-from unittest.mock import MagicMock, patch
 
+from unittest.mock import MagicMock, patch
 
 # ---------------------------------------------------------------------------
 # Test 1: Handler is created when langfuse is enabled with valid keys
 # ---------------------------------------------------------------------------
+
 
 def test_handler_created():
     """get_langfuse_handler() returns a CallbackHandler instance when langfuse_enabled=True
@@ -25,12 +25,15 @@ def test_handler_created():
     mock_langfuse_langchain = MagicMock()
     mock_langfuse_langchain.CallbackHandler = mock_callback_cls
 
-    with patch("src.monitoring.langfuse_client.settings") as mock_settings, \
-         patch.dict("sys.modules", {"langfuse.langchain": mock_langfuse_langchain}):
+    with (
+        patch("src.monitoring.langfuse_client.settings") as mock_settings,
+        patch.dict("sys.modules", {"langfuse.langchain": mock_langfuse_langchain}),
+    ):
         mock_settings.langfuse_enabled = True
         mock_settings.langfuse_public_key = "pk-lf-test-key"
 
         from src.monitoring import langfuse_client
+
         result = langfuse_client.get_langfuse_handler()
 
     assert result is mock_handler_instance
@@ -40,14 +43,17 @@ def test_handler_created():
 # Test 2: Handler returns None when langfuse is disabled
 # ---------------------------------------------------------------------------
 
+
 def test_handler_disabled():
     """get_langfuse_handler() returns None when langfuse_enabled=False."""
     with patch("src.monitoring.langfuse_client.settings") as mock_settings:
         mock_settings.langfuse_enabled = False
         mock_settings.langfuse_public_key = "pk-lf-test-key"
 
-        from src.monitoring import langfuse_client
         import importlib
+
+        from src.monitoring import langfuse_client
+
         importlib.reload(langfuse_client)
 
         result = langfuse_client.get_langfuse_handler()
@@ -59,14 +65,17 @@ def test_handler_disabled():
 # Test 3: Handler returns None gracefully when public key is empty
 # ---------------------------------------------------------------------------
 
+
 def test_handler_graceful_when_no_keys():
     """get_langfuse_handler() returns None without raising when LANGFUSE_PUBLIC_KEY is empty."""
     with patch("src.monitoring.langfuse_client.settings") as mock_settings:
         mock_settings.langfuse_enabled = True
         mock_settings.langfuse_public_key = ""  # empty key — graceful degradation
 
-        from src.monitoring import langfuse_client
         import importlib
+
+        from src.monitoring import langfuse_client
+
         importlib.reload(langfuse_client)
 
         # Must not raise any exception
@@ -79,6 +88,7 @@ def test_handler_graceful_when_no_keys():
 # Test 4: update_token_usage calls observation with correct keys
 # ---------------------------------------------------------------------------
 
+
 def test_update_token_usage_keys():
     """update_token_usage(input_tokens=100, output_tokens=50) calls obs.update with
     usage_details containing 'input' and 'output' keys."""
@@ -90,8 +100,10 @@ def test_update_token_usage_keys():
     mock_langfuse_module.get_client.return_value = mock_langfuse_client
 
     with patch.dict("sys.modules", {"langfuse": mock_langfuse_module}):
-        from src.monitoring import langfuse_client
         import importlib
+
+        from src.monitoring import langfuse_client
+
         importlib.reload(langfuse_client)
 
         langfuse_client.update_token_usage(input_tokens=100, output_tokens=50)
@@ -109,6 +121,7 @@ def test_update_token_usage_keys():
 # ---------------------------------------------------------------------------
 # Test 5: Settings class has the required Langfuse fields
 # ---------------------------------------------------------------------------
+
 
 def test_settings_has_langfuse_fields():
     """Settings class exposes langfuse_public_key, langfuse_secret_key,
@@ -135,6 +148,7 @@ def test_settings_has_langfuse_fields():
 # Test 6: query_sse passes callbacks=[handler] to graph.ainvoke() (MON-04)
 # ---------------------------------------------------------------------------
 
+
 def test_query_sse_passes_callbacks_to_graph_ainvoke():
     """backend/main.py query_sse must pass callbacks=[handler] inside the config
     dict to graph.ainvoke().
@@ -155,21 +169,25 @@ def test_query_sse_passes_callbacks_to_graph_ainvoke():
     sentinel_handler = MagicMock(name="langfuse_handler")
 
     mock_graph = MagicMock()
-    mock_graph.ainvoke = AsyncMock(return_value={
-        "query": "test",
-        "response": "Jawaban uji.",
-        "citations": [],
-        "query_type": "Simple",
-        "crag_grade": "CORRECT",
-        "error": None,
-    })
+    mock_graph.ainvoke = AsyncMock(
+        return_value={
+            "query": "test",
+            "response": "Jawaban uji.",
+            "citations": [],
+            "query_type": "Simple",
+            "crag_grade": "CORRECT",
+            "error": None,
+        }
+    )
 
     # Stub out sse_starlette if not available, so backend.main can be imported.
     # EventSourceResponse is replaced with a simple async-iterable wrapper.
     sse_stub_installed = False
     if "sse_starlette" not in sys.modules:
+
         class _FakeEventSourceResponse:
             """Minimal stand-in: wraps an async generator so tests can iterate it."""
+
             def __init__(self, gen, *args, **kwargs):
                 self._gen = gen
 
@@ -192,10 +210,13 @@ def test_query_sse_passes_callbacks_to_graph_ainvoke():
         from backend.models import QueryRequest
 
         async def _run():
-            with patch("backend.main.get_langfuse_handler", return_value=sentinel_handler) as mock_get_handler, \
-                 patch("backend.main.get_graph", return_value=mock_graph), \
-                 patch("backend.main.save_history", new_callable=AsyncMock, return_value="hist-001"):
-
+            with (
+                patch(
+                    "backend.main.get_langfuse_handler", return_value=sentinel_handler
+                ) as mock_get_handler,
+                patch("backend.main.get_graph", return_value=mock_graph),
+                patch("backend.main.save_history", new_callable=AsyncMock, return_value="hist-001"),
+            ):
                 request = QueryRequest(question="Apa itu BEP?", session_id="sess-test-001")
 
                 # query_sse returns an EventSourceResponse (or stub) wrapping an async
@@ -221,8 +242,7 @@ def test_query_sse_passes_callbacks_to_graph_ainvoke():
                     f"got keys: {list(config_passed.keys())}"
                 )
                 assert config_passed["callbacks"] == [sentinel_handler], (
-                    f"Expected callbacks=[sentinel_handler], "
-                    f"got: {config_passed['callbacks']}"
+                    f"Expected callbacks=[sentinel_handler], got: {config_passed['callbacks']}"
                 )
                 assert "metadata" in config_passed, (
                     f"'metadata' key missing from ainvoke config; got keys: {list(config_passed.keys())}"

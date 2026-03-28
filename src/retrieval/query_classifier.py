@@ -7,12 +7,21 @@ Pattern: a query is Calculation if it contains BOTH a calculation keyword
 AND at least one number. Queries with keywords but no numbers (e.g., "hitung BEP")
 are NOT classified as Calculation — they are likely definitional questions.
 """
+
 import re
 
-_CALC_KEYWORDS = frozenset([
-    "hitung", "hitunglah", "berapa", "kalkulasi", "kalkulasikan",
-    "bep", "break-even", "break even",
-])
+_CALC_KEYWORDS = frozenset(
+    [
+        "hitung",
+        "hitunglah",
+        "berapa",
+        "kalkulasi",
+        "kalkulasikan",
+        "bep",
+        "break-even",
+        "break even",
+    ]
+)
 
 _NUMBER_PATTERN = re.compile(r"\d[\d.,]*")
 

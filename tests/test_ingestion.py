@@ -10,18 +10,19 @@ Verifies the enqueue/process two-phase ingestion pipeline:
 
 All LightRAG calls are mocked — no live SiliconFlow API calls.
 """
+
 import asyncio
 import json
-import pytest
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import src.knowledge_graph.graph_ingestion as graph_ingestion_module
+import pytest
 
+import src.knowledge_graph.graph_ingestion as graph_ingestion_module
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def sample_chunks_json(tmp_path):
@@ -31,21 +32,30 @@ def sample_chunks_json(tmp_path):
     With 60 chunks and 6 types: each type appears 10 times.
     Filtered count: narrative_text (10) + example_problem (10) = 20 chunks.
     """
-    content_types = ["narrative_text", "table", "formula", "example_problem", "diagram", "formula_index"]
+    content_types = [
+        "narrative_text",
+        "table",
+        "formula",
+        "example_problem",
+        "diagram",
+        "formula_index",
+    ]
     chunks = []
     for i in range(60):
         ct = content_types[i % len(content_types)]
-        chunks.append({
-            "text": f"Chunk {i}: overhead cost allocation discussion.",
-            "metadata": {
-                "book_title": "Horngren, Cost Accounting",
-                "chapter": f"Chapter {(i % 5) + 1}",
-                "section_path": f"Part I > Chapter {(i % 5) + 1}",
-                "content_type": ct,
-                "page_start": 100 + i,
-                "page_end": 100 + i,
-            },
-        })
+        chunks.append(
+            {
+                "text": f"Chunk {i}: overhead cost allocation discussion.",
+                "metadata": {
+                    "book_title": "Horngren, Cost Accounting",
+                    "chapter": f"Chapter {(i % 5) + 1}",
+                    "section_path": f"Part I > Chapter {(i % 5) + 1}",
+                    "content_type": ct,
+                    "page_start": 100 + i,
+                    "page_end": 100 + i,
+                },
+            }
+        )
     json_path = tmp_path / "chunks_backup.json"
     json_path.write_text(json.dumps(chunks), encoding="utf-8")
     return str(json_path)
@@ -59,17 +69,19 @@ def large_chunks_json(tmp_path):
     """
     chunks = []
     for i in range(300):
-        chunks.append({
-            "text": f"Chunk {i}: narrative text about cost allocation.",
-            "metadata": {
-                "book_title": "Horngren, Cost Accounting",
-                "chapter": f"Chapter {(i % 10) + 1}",
-                "section_path": f"Part I > Chapter {(i % 10) + 1}",
-                "content_type": "narrative_text",
-                "page_start": 100 + i,
-                "page_end": 100 + i,
-            },
-        })
+        chunks.append(
+            {
+                "text": f"Chunk {i}: narrative text about cost allocation.",
+                "metadata": {
+                    "book_title": "Horngren, Cost Accounting",
+                    "chapter": f"Chapter {(i % 10) + 1}",
+                    "section_path": f"Part I > Chapter {(i % 10) + 1}",
+                    "content_type": "narrative_text",
+                    "page_start": 100 + i,
+                    "page_end": 100 + i,
+                },
+            }
+        )
     json_path = tmp_path / "large_chunks.json"
     json_path.write_text(json.dumps(chunks), encoding="utf-8")
     return str(json_path)
@@ -82,10 +94,12 @@ def mock_rag_instance():
     rag.apipeline_enqueue_documents = AsyncMock(return_value=None)
     rag.apipeline_process_enqueue_documents = AsyncMock(return_value=None)
     rag.finalize_storages = AsyncMock(return_value=None)
-    rag.get_processing_status = AsyncMock(side_effect=[
-        {"processed": 0, "failed": 0, "pending": 0},   # status_before
-        {"processed": 20, "failed": 0, "pending": 0},   # status after processing
-    ])
+    rag.get_processing_status = AsyncMock(
+        side_effect=[
+            {"processed": 0, "failed": 0, "pending": 0},  # status_before
+            {"processed": 20, "failed": 0, "pending": 0},  # status after processing
+        ]
+    )
     # Mock doc_status._data for dup-count check in resume path
     rag.doc_status._data = {}
     return rag
@@ -94,6 +108,7 @@ def mock_rag_instance():
 # ---------------------------------------------------------------------------
 # Helper: patch context for ingest_chunks_to_lightrag
 # ---------------------------------------------------------------------------
+
 
 def _run_ingest(json_path, mock_rag, audit_mode=True):
     """Run ingest_chunks_to_lightrag with mocked build_lightrag_instance."""
@@ -114,14 +129,13 @@ def _run_resume(mock_rag):
         "build_lightrag_instance",
         new=AsyncMock(return_value=mock_rag),
     ):
-        return asyncio.run(
-            graph_ingestion_module.resume_lightrag_ingestion()
-        )
+        return asyncio.run(graph_ingestion_module.resume_lightrag_ingestion())
 
 
 # ---------------------------------------------------------------------------
 # Tests — ingest_chunks_to_lightrag
 # ---------------------------------------------------------------------------
+
 
 def test_content_type_filtering(sample_chunks_json, mock_rag_instance):
     """Only narrative_text and example_problem chunks are enqueued.
@@ -174,9 +188,7 @@ def test_audit_mode_caps_at_50(large_chunks_json, mock_rag_instance):
     """audit_mode=True caps at 50 chunks even when 300 narrative_text chunks available."""
     result = _run_ingest(large_chunks_json, mock_rag_instance, audit_mode=True)
 
-    assert result["total"] == 50, (
-        f"Expected audit mode to cap at 50 but got {result['total']}"
-    )
+    assert result["total"] == 50, f"Expected audit mode to cap at 50 but got {result['total']}"
 
 
 def test_full_mode_processes_all_filtered(sample_chunks_json, mock_rag_instance):
@@ -227,7 +239,7 @@ def test_finalize_called_on_exception(sample_chunks_json, mock_rag_instance):
     )
 
     # Must not raise
-    result = _run_ingest(sample_chunks_json, mock_rag_instance, audit_mode=True)
+    _run_ingest(sample_chunks_json, mock_rag_instance, audit_mode=True)
 
     # finalize_storages must be called (in finally block)
     mock_rag_instance.finalize_storages.assert_called()
@@ -254,6 +266,7 @@ def test_batch_enqueue_size(large_chunks_json, mock_rag_instance):
 # ---------------------------------------------------------------------------
 # Tests — resume_lightrag_ingestion
 # ---------------------------------------------------------------------------
+
 
 def test_resume_calls_process_only(sample_chunks_json, mock_rag_instance):
     """resume_lightrag_ingestion calls apipeline_process_enqueue_documents only — NOT apipeline_enqueue_documents."""

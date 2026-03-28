@@ -1,7 +1,9 @@
 """PDF routing: PyMuPDF triage → Docling (text-based) or MinerU (scanned), with mutual fallback."""
-import pymupdf
-from pathlib import Path
+
 import logging
+from pathlib import Path
+
+import pymupdf
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +27,8 @@ def route_and_parse(pdf_path: str | Path, output_dir: str | Path) -> dict:
 
     pdf_type = classify_pdf(pdf_path)
     primary, fallback = (
-        (parse_with_docling, parse_with_mineru) if pdf_type == "text-based"
+        (parse_with_docling, parse_with_mineru)
+        if pdf_type == "text-based"
         else (parse_with_mineru, parse_with_docling)
     )
     primary_name = "docling" if pdf_type == "text-based" else "mineru"
@@ -35,7 +38,9 @@ def route_and_parse(pdf_path: str | Path, output_dir: str | Path) -> dict:
         result = primary(str(pdf_path), str(output_dir))
         result["parser_used"] = primary_name
     except Exception as e:
-        logger.warning(f"{primary_name} failed for {pdf_path}: {e} — falling back to {fallback_name}")
+        logger.warning(
+            f"{primary_name} failed for {pdf_path}: {e} — falling back to {fallback_name}"
+        )
         result = fallback(str(pdf_path), str(output_dir))
         result["parser_used"] = fallback_name
 

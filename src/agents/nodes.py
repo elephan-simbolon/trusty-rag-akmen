@@ -1,15 +1,15 @@
 import logging
 
+from config.prompts import SYSTEM_PROMPT_REFORMULATOR
+from config.settings import settings
 from src.agents.state import RAGState
-from src.services.graph_service import get_lightrag
-from src.retrieval.preprocessor import preprocess_query
-from src.retrieval.vector_search import hybrid_search
-from src.retrieval.reranker import rerank_results
-from src.retrieval.query_classifier import is_calculation_query
 from src.generation.generator import generate_response
 from src.llm.client import generate as llm_generate
-from config.settings import settings
-from config.prompts import SYSTEM_PROMPT_REFORMULATOR
+from src.retrieval.preprocessor import preprocess_query
+from src.retrieval.query_classifier import is_calculation_query
+from src.retrieval.reranker import rerank_results
+from src.retrieval.vector_search import hybrid_search
+from src.services.graph_service import get_lightrag
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +80,14 @@ async def graph_retrieve_node(state: RAGState) -> dict:
     query = state["query"]
 
     RELATIONAL_KEYWORDS = [
-        "prerequisite", "prasyarat", "hubungan", "relasi",
-        "sebelum", "setelah", "dasar dari", "basis of",
+        "prerequisite",
+        "prasyarat",
+        "hubungan",
+        "relasi",
+        "sebelum",
+        "setelah",
+        "dasar dari",
+        "basis of",
     ]
     query_lower = query.lower()
     if any(kw in query_lower for kw in RELATIONAL_KEYWORDS):
@@ -91,20 +97,23 @@ async def graph_retrieve_node(state: RAGState) -> dict:
 
     try:
         from lightrag import QueryParam
+
         graph_result = await rag.aquery(query, param=QueryParam(mode=mode))
 
-        graph_docs = [{
-            "text": graph_result,
-            "metadata": {
-                "book_title": "Knowledge Graph",
-                "chapter": "Multi-source synthesis",
-                "content_type": "graph_context",
-                "page_start": 0,
-                "page_end": 0,
-                "section_path": f"LightRAG/{mode} mode",
-            },
-            "score": 1.0,
-        }]
+        graph_docs = [
+            {
+                "text": graph_result,
+                "metadata": {
+                    "book_title": "Knowledge Graph",
+                    "chapter": "Multi-source synthesis",
+                    "content_type": "graph_context",
+                    "page_start": 0,
+                    "page_end": 0,
+                    "section_path": f"LightRAG/{mode} mode",
+                },
+                "score": 1.0,
+            }
+        ]
 
         return {"graph_docs": graph_docs, "query_mode": mode}
 
@@ -126,7 +135,7 @@ def rerank_node(state: RAGState) -> dict:
         return {"reranked_docs": reranked}
     except Exception as e:
         logger.error(f"Reranking failed: {e}")
-        return {"reranked_docs": state["retrieved_docs"][:settings.reranker_top_k_output]}
+        return {"reranked_docs": state["retrieved_docs"][: settings.reranker_top_k_output]}
 
 
 def generate_node(state: RAGState) -> dict:

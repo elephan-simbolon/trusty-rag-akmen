@@ -3,25 +3,26 @@
 CRITICAL: Both dense and sparse vector configs MUST be set at collection creation time.
 Adding sparse vectors later requires full collection recreation.
 """
-import uuid
+
 import logging
+import uuid
 from collections import Counter
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
-    VectorParams,
     Distance,
-    SparseVectorParams,
-    SparseIndexParams,
+    FieldCondition,
+    Filter,
+    FilterSelector,
+    MatchValue,
+    PointStruct,
     ScalarQuantization,
     ScalarQuantizationConfig,
     ScalarType,
-    PointStruct,
+    SparseIndexParams,
     SparseVector,
-    Filter,
-    FieldCondition,
-    MatchValue,
-    FilterSelector,
+    SparseVectorParams,
+    VectorParams,
 )
 
 from config.settings import settings
@@ -69,6 +70,7 @@ def create_collection(client: QdrantClient, collection_name: str | None = None):
 
     # Create payload indices for filtering (required by Qdrant Cloud)
     from qdrant_client.models import PayloadSchemaType
+
     for field in ["book_title", "chapter", "content_type"]:
         client.create_payload_index(
             collection_name=name,

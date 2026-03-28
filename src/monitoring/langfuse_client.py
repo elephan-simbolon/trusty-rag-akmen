@@ -12,6 +12,7 @@ Design decisions:
 - Graceful degradation when LANGFUSE_PUBLIC_KEY is empty or langfuse_enabled=False:
   returns None without raising so the system operates normally.
 """
+
 import logging
 
 from config.settings import settings
@@ -42,6 +43,7 @@ def get_langfuse_handler():
     try:
         # Lazy import — avoids auth errors when env vars absent in test environments
         from langfuse.langchain import CallbackHandler  # type: ignore[import]
+
         return CallbackHandler()
     except Exception:
         logger.debug("Langfuse handler creation failed — continuing without tracing")
@@ -67,6 +69,7 @@ def update_token_usage(input_tokens: int, output_tokens: int) -> None:
     try:
         # Lazy import — avoids auth errors when env vars absent in test environments
         from langfuse import get_client  # type: ignore[import]
+
         langfuse = get_client()
         obs = langfuse.get_current_observation()
         if obs is not None:

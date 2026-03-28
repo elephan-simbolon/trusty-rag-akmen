@@ -22,6 +22,7 @@ FRONTEND_SRC = PROJECT_ROOT / "frontend" / "src"
 # FLAG-3/T1 — api.ts exists and exports API_BASE_URL with correct signature
 # ---------------------------------------------------------------------------
 
+
 def test_api_ts_file_exists():
     """api.ts must exist at frontend/src/lib/api.ts."""
     api_file = FRONTEND_SRC / "lib" / "api.ts"
@@ -49,7 +50,7 @@ def test_api_ts_uses_logical_or_empty_string_fallback():
     content = api_file.read_text(encoding="utf-8")
 
     # Pattern: import.meta.env.VITE_API_BASE_URL || ""  (or single-quoted)
-    pattern = r'import\.meta\.env\.VITE_API_BASE_URL\s*\|\|'
+    pattern = r"import\.meta\.env\.VITE_API_BASE_URL\s*\|\|"
     assert re.search(pattern, content), (
         "api.ts must use 'import.meta.env.VITE_API_BASE_URL || \"\"' (logical OR fallback). "
         f"Current content:\n{content}"
@@ -83,7 +84,7 @@ def test_consumer_files_have_no_raw_vite_api_base_url():
 
     assert not violations, (
         "The following consumer files still contain raw 'import.meta.env.VITE_API_BASE_URL' "
-        f"and must import API_BASE_URL from @/lib/api instead:\n"
+        "and must import API_BASE_URL from @/lib/api instead:\n"
         + "\n".join(f"  - {v}" for v in violations)
     )
 
@@ -106,6 +107,7 @@ def test_consumer_files_import_api_base_url_from_lib_api():
 # ---------------------------------------------------------------------------
 # FLAG-3/T3 — main.tsx console.error is DEV-gated
 # ---------------------------------------------------------------------------
+
 
 def test_main_tsx_console_error_gated_with_dev_flag():
     """main.tsx warning must only fire in DEV mode — production builds stay silent."""
@@ -133,9 +135,7 @@ def test_main_tsx_does_not_have_ungated_vite_api_base_url_warning():
     # An ungated pattern would be: if (!import.meta.env.VITE_API_BASE_URL) {
     # without the DEV guard preceding it on the same condition line.
     # We look for lines that have the negated check but NOT the DEV guard.
-    ungated_pattern = re.compile(
-        r"if\s*\(\s*!import\.meta\.env\.VITE_API_BASE_URL\s*\)"
-    )
+    ungated_pattern = re.compile(r"if\s*\(\s*!import\.meta\.env\.VITE_API_BASE_URL\s*\)")
     assert not ungated_pattern.search(content), (
         "main.tsx has an ungated 'if (!import.meta.env.VITE_API_BASE_URL)' check. "
         "This will fire console.error in production. Gate it with import.meta.env.DEV."
@@ -146,12 +146,12 @@ def test_main_tsx_does_not_have_ungated_vite_api_base_url_warning():
 # FLAG-3/T4 — SC-4 pre-satisfied: app/ absent, streamlit absent from pyproject
 # ---------------------------------------------------------------------------
 
+
 def test_app_directory_does_not_exist():
     """SC-4: the app/ directory (Streamlit app) must not exist."""
     app_dir = PROJECT_ROOT / "app"
     assert not app_dir.exists(), (
-        f"app/ directory exists at {app_dir}. "
-        "SC-4 requires Streamlit app directory to be absent."
+        f"app/ directory exists at {app_dir}. SC-4 requires Streamlit app directory to be absent."
     )
 
 
@@ -176,6 +176,7 @@ def test_streamlit_absent_from_pyproject_toml():
 # FLAG-3/T5 — Vite production build artifact exists
 # ---------------------------------------------------------------------------
 
+
 def test_frontend_dist_directory_exists():
     """A prior successful Vite production build must have produced frontend/dist/."""
     dist_dir = PROJECT_ROOT / "frontend" / "dist"
@@ -189,8 +190,7 @@ def test_frontend_dist_contains_index_html():
     """frontend/dist/ must contain index.html — the SPA entry point."""
     index_html = PROJECT_ROOT / "frontend" / "dist" / "index.html"
     assert index_html.exists(), (
-        f"frontend/dist/index.html not found. "
-        "The Vite build output is incomplete or missing."
+        "frontend/dist/index.html not found. The Vite build output is incomplete or missing."
     )
 
 
@@ -198,14 +198,12 @@ def test_frontend_dist_contains_assets():
     """frontend/dist/ must contain an assets/ subdirectory with bundled JS/CSS."""
     assets_dir = PROJECT_ROOT / "frontend" / "dist" / "assets"
     assert assets_dir.exists() and assets_dir.is_dir(), (
-        f"frontend/dist/assets/ not found. "
-        "Vite build output is missing the assets directory."
+        "frontend/dist/assets/ not found. Vite build output is missing the assets directory."
     )
 
     js_files = list(assets_dir.glob("*.js"))
     assert js_files, (
-        "frontend/dist/assets/ contains no .js files. "
-        "Vite build output appears incomplete."
+        "frontend/dist/assets/ contains no .js files. Vite build output appears incomplete."
     )
 
 

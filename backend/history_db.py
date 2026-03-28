@@ -1,10 +1,11 @@
 """SQLite-backed chat history for single-user local deployment."""
 
 import json
-import aiosqlite
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
-from datetime import datetime, timezone
+
+import aiosqlite
 
 DB_PATH = Path(__file__).parent / "history.db"
 
@@ -30,14 +31,24 @@ async def _get_db() -> aiosqlite.Connection:
     return db
 
 
-async def save_history(question: str, answer: str, citations: list, query_type: str | None, crag_grade: str | None) -> str:
+async def save_history(
+    question: str, answer: str, citations: list, query_type: str | None, crag_grade: str | None
+) -> str:
     db = await _get_db()
     try:
         hid = str(uuid4())
         now = datetime.now(timezone.utc).isoformat()
         await db.execute(
             "INSERT INTO history (id, question, answer, citations, query_type, crag_grade, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (hid, question, answer, json.dumps(citations, ensure_ascii=False), query_type, crag_grade, now),
+            (
+                hid,
+                question,
+                answer,
+                json.dumps(citations, ensure_ascii=False),
+                query_type,
+                crag_grade,
+                now,
+            ),
         )
         await db.commit()
         return hid
@@ -58,14 +69,16 @@ async def list_history(page: int = 1, per_page: int = 20) -> dict:
         rows = await cursor.fetchall()
         data = []
         for r in rows:
-            data.append({
-                "id": r["id"],
-                "question": r["question"],
-                "answer_preview": r["answer"][:100],
-                "citations_count": len(json.loads(r["citations"])),
-                "feedback": r["feedback"],
-                "created_at": r["created_at"],
-            })
+            data.append(
+                {
+                    "id": r["id"],
+                    "question": r["question"],
+                    "answer_preview": r["answer"][:100],
+                    "citations_count": len(json.loads(r["citations"])),
+                    "feedback": r["feedback"],
+                    "created_at": r["created_at"],
+                }
+            )
         return {"data": data, "total": total, "page": page, "per_page": per_page}
     finally:
         await db.close()
@@ -107,7 +120,9 @@ async def delete_history(history_id: str) -> bool:
 async def update_feedback(history_id: str, feedback: int) -> bool:
     db = await _get_db()
     try:
-        cursor = await db.execute("UPDATE history SET feedback = ? WHERE id = ?", (feedback, history_id))
+        cursor = await db.execute(
+            "UPDATE history SET feedback = ? WHERE id = ?", (feedback, history_id)
+        )
         await db.commit()
         return cursor.rowcount > 0
     finally:
@@ -117,7 +132,9 @@ async def update_feedback(history_id: str, feedback: int) -> bool:
 async def update_title(history_id: str, title: str) -> bool:
     db = await _get_db()
     try:
-        cursor = await db.execute("UPDATE history SET question = ? WHERE id = ?", (title, history_id))
+        cursor = await db.execute(
+            "UPDATE history SET question = ? WHERE id = ?", (title, history_id)
+        )
         await db.commit()
         return cursor.rowcount > 0
     finally:

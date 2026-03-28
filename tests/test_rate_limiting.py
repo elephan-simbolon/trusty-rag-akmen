@@ -7,16 +7,19 @@ Covers:
 - rerank function retries on 429 (does not hard-fail on first 429)
 - Non-429 errors still trigger retry
 """
+
 import logging
-import pytest
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import MagicMock, patch
+
 import httpx
+import pytest
 
 
 class TestLogRateLimitCallback:
     def test_log_rate_limit_is_defined(self):
         """_log_rate_limit function is defined in client module."""
         from src.llm.client import _log_rate_limit
+
         assert callable(_log_rate_limit)
 
     def test_log_rate_limit_logs_429(self, caplog):
@@ -81,6 +84,7 @@ class TestRetryConfigBeforeSleep:
     def test_retry_config_uses_log_rate_limit(self):
         """_RETRY_CONFIG before_sleep is _log_rate_limit."""
         from src.llm.client import _RETRY_CONFIG, _log_rate_limit
+
         assert _RETRY_CONFIG["before_sleep"] is _log_rate_limit, (
             f"_RETRY_CONFIG['before_sleep'] should be _log_rate_limit, "
             f"got {_RETRY_CONFIG['before_sleep']}"
@@ -89,6 +93,7 @@ class TestRetryConfigBeforeSleep:
     def test_ui_retry_config_uses_log_rate_limit(self):
         """_UI_RETRY_CONFIG before_sleep is _log_rate_limit."""
         from src.llm.client import _UI_RETRY_CONFIG, _log_rate_limit
+
         assert _UI_RETRY_CONFIG["before_sleep"] is _log_rate_limit, (
             f"_UI_RETRY_CONFIG['before_sleep'] should be _log_rate_limit, "
             f"got {_UI_RETRY_CONFIG['before_sleep']}"
@@ -101,8 +106,9 @@ class TestRetryConfigBeforeSleep:
         exceptions including HTTPStatusError (a subclass of Exception), this verifies
         the retry predicate covers 429 HTTPStatusError by checking exception class membership.
         """
-        from src.llm.client import _RETRY_CONFIG, _UI_RETRY_CONFIG
         from tenacity.retry import retry_if_exception_type
+
+        from src.llm.client import _RETRY_CONFIG, _UI_RETRY_CONFIG
 
         # Verify both configs use retry_if_exception_type with (Exception,)
         # which captures all exceptions including httpx.HTTPStatusError
