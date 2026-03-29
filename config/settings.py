@@ -21,14 +21,14 @@ class Settings(BaseSettings):
     qdrant_collection_name: str = "trusty_rag_akmen"
     reranker_top_k_input: int = 20
     reranker_top_k_output: int = 5
-    lightrag_working_dir: str = "./lightrag_storage"
+    graphrag_working_dir: str = "./graphrag_storage"
     langfuse_public_key: str = ""
     langfuse_secret_key: SecretStr = SecretStr("")
     langfuse_base_url: str = "https://cloud.langfuse.com"
     langfuse_enabled: bool = True
     deepseek_api_key: SecretStr = SecretStr("")
     deepseek_base_url: str = "https://api.deepseek.com/v1"
-    lightrag_llm_model: str = "deepseek-chat"
+    graphrag_llm_model: str = "deepseek-chat"
 
 
 settings = Settings()

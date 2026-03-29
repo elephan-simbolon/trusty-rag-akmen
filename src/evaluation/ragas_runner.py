@@ -203,7 +203,8 @@ async def run_ragas_evaluation(
         api_key=settings.siliconflow_api_key.get_secret_value(),
         base_url=settings.siliconflow_base_url,
     )
-    ragas_llm = llm_factory(settings.llm_model, client=client)
+    # max_tokens=4096: ragas default 1024 terlalu kecil untuk ContextRecall dan Faithfulness
+    ragas_llm = llm_factory(settings.llm_model, client=client, max_tokens=4096)
     ragas_embeddings = OpenAIEmbeddings(client=client, model=settings.embedding_model)
 
     # Load partial checkpoint jika resume
