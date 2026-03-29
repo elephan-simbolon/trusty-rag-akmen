@@ -14,6 +14,11 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
+from backend.eval_db import (
+    get_latest_eval_run,
+    list_eval_runs,
+    save_eval_run,
+)
 from backend.history_db import (
     delete_history,
     get_history_detail,
@@ -25,25 +30,23 @@ from backend.history_db import (
 from backend.models import HealthResponse, QueryRequest
 from config.settings import settings
 from src.monitoring.langfuse_client import get_langfuse_handler
-from src.services.graph_service import get_graph, set_lightrag
+from src.services.graph_service import get_graph, set_graphrag
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize and teardown LightRAG singleton in the FastAPI event loop."""
-    from src.knowledge_graph.lightrag_client import build_lightrag_instance
+    """Initialize and teardown GraphRAG singleton."""
+    from src.knowledge_graph.fastgraphrag_client import build_graphrag_instance
 
-    logger.info("Initializing LightRAG instance...")
-    rag = await build_lightrag_instance()
-    await rag.initialize_storages()
-    set_lightrag(rag)
-    logger.info("LightRAG ready.")
+    logger.info("Initializing GraphRAG instance...")
+    grag = build_graphrag_instance()
+    set_graphrag(grag)
+    logger.info("GraphRAG ready.")
     yield
-    set_lightrag(None)
-    logger.info("Shutting down LightRAG...")
-    await rag.finalize_storages()
+    set_graphrag(None)
+    logger.info("GraphRAG shutdown.")
 
 
 app = FastAPI(title="Trusty RAG Akmen API", version="1.0.0", lifespan=lifespan)
@@ -184,6 +187,12 @@ class TitleBody(BaseModel):
     title: str
 
 
+class EvalRunBody(BaseModel):
+    summary: dict
+    results: list[dict]
+    model: str = ""
+
+
 @app.patch("/api/history/{history_id}/title")
 async def patch_title(history_id: str, body: TitleBody):
     trimmed = body.title.strip()
@@ -198,6 +207,33 @@ async def patch_title(history_id: str, body: TitleBody):
 def _sse_event(event_type: str, data: dict) -> dict:
     """Format an SSE event payload."""
     return {"data": json.dumps({"type": event_type, **data}, ensure_ascii=False)}
+
+
+# --- Eval endpoints ---
+
+
+@app.post("/api/eval/runs")
+async def post_eval_run(body: EvalRunBody):
+    run_id = await save_eval_run(
+        summary=body.summary,
+        results=body.results,
+        model=body.model,
+    )
+    return {"run_id": run_id, "success": True}
+
+
+@app.get("/api/eval/runs/latest")
+async def get_eval_run_latest():
+    run = await get_latest_eval_run()
+    if run is None:
+        raise HTTPException(status_code=404, detail="Belum ada eval run")
+    return run
+
+
+@app.get("/api/eval/runs")
+async def get_eval_runs_list():
+    runs = await list_eval_runs()
+    return {"data": runs, "total": len(runs)}
 
 
 # --- Static file serving for production builds ---
