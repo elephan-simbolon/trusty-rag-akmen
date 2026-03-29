@@ -13,12 +13,14 @@ import ChatMessage from "./components/ChatMessage";
 import EmptyState from "./components/EmptyState";
 import BrandLogo from "./components/BrandLogo";
 import { HistorySidebar } from "./components/HistorySidebar";
+import { EvalDashboard } from "./components/EvalDashboard";
 import type { HistoryDetail } from "./types/sse";
 
 function App() {
   const [currentFeedback, setCurrentFeedback] = useState<1 | -1 | null>(null);
   const [lastQuestion, setLastQuestion] = useState<string>("");
   const [isDark, setIsDark] = useState<boolean>(() => localStorage.getItem("theme") !== "light");
+  const [activeView, setActiveView] = useState<"chat" | "eval">("chat");
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -94,8 +96,30 @@ function App() {
             <SidebarInset className="flex flex-col min-w-0">
               <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border/50 shrink-0
                                  bg-background/95 backdrop-blur-sm sticky top-0 z-10">
-                <div className="flex items-center">
+                <div className="flex items-center gap-3">
                   <BrandLogo />
+                  <nav className="flex items-center gap-1">
+                    <button
+                      onClick={() => setActiveView("chat")}
+                      className={`px-3 py-1 rounded-md text-sm transition-colors ${
+                        activeView === "chat"
+                          ? "bg-primary/10 text-primary font-medium"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Chat
+                    </button>
+                    <button
+                      onClick={() => setActiveView("eval")}
+                      className={`px-3 py-1 rounded-md text-sm transition-colors ${
+                        activeView === "eval"
+                          ? "bg-primary/10 text-primary font-medium"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Evaluasi
+                    </button>
+                  </nav>
                 </div>
                 <Button
                   variant="ghost"
@@ -107,33 +131,38 @@ function App() {
                 </Button>
               </header>
 
-              <main className="flex-1 overflow-y-auto">
-                <div className="max-w-3xl mx-auto px-6 py-6">
-                  {phase === "idle" && messages.length === 0 ? (
-                    <EmptyState onSuggestionClick={handleSubmit} />
-                  ) : (
-                    <ChatMessage
-                      phase={phase}
-                      statusMessage={statusMessage}
-                      text={text}
-                      citations={citations}
-                      error={error}
-                      historyId={historyId}
-                      currentFeedback={currentFeedback}
-                      question={lastQuestion}
-                      messages={messages}
-                      queryType={queryType}
-                      onRetry={lastQuestion && !isLoading ? handleRetry : undefined}
-                    />
-                  )}
-                </div>
-              </main>
-
-              <footer className="shrink-0 border-t border-border/50 bg-background/95 backdrop-blur-sm">
-                <div className="max-w-3xl mx-auto px-6 py-4">
-                  <ChatInput onSubmit={handleSubmit} disabled={isLoading} />
-                </div>
-              </footer>
+              {activeView === "eval" ? (
+                <EvalDashboard />
+              ) : (
+                <>
+                  <main className="flex-1 overflow-y-auto">
+                    <div className="max-w-3xl mx-auto px-6 py-6">
+                      {phase === "idle" && messages.length === 0 ? (
+                        <EmptyState onSuggestionClick={handleSubmit} />
+                      ) : (
+                        <ChatMessage
+                          phase={phase}
+                          statusMessage={statusMessage}
+                          text={text}
+                          citations={citations}
+                          error={error}
+                          historyId={historyId}
+                          currentFeedback={currentFeedback}
+                          question={lastQuestion}
+                          messages={messages}
+                          queryType={queryType}
+                          onRetry={lastQuestion && !isLoading ? handleRetry : undefined}
+                        />
+                      )}
+                    </div>
+                  </main>
+                  <footer className="shrink-0 border-t border-border/50 bg-background/95 backdrop-blur-sm">
+                    <div className="max-w-3xl mx-auto px-6 py-4">
+                      <ChatInput onSubmit={handleSubmit} disabled={isLoading} />
+                    </div>
+                  </footer>
+                </>
+              )}
             </SidebarInset>
           </div>
         </SidebarProvider>
