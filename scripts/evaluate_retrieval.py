@@ -7,9 +7,12 @@ Usage:
     python scripts/evaluate_retrieval.py --output data/eval/results.json
     python scripts/evaluate_retrieval.py --dry-run   # validate JSON structure only
     python scripts/evaluate_retrieval.py -v          # verbose per-query output
+    python scripts/evaluate_retrieval.py --generate-golden  # generate golden answers
+    python scripts/evaluate_retrieval.py --ragas     # full RAGAS evaluation (4 metrics)
 """
 
 import argparse
+import asyncio
 import json
 import sys
 import time
@@ -24,6 +27,10 @@ DEFAULT_OUTPUT_PATH = Path(__file__).parent.parent / "data" / "eval" / "results.
 
 REQUIRED_FIELDS = {"id", "query", "expected_books", "expected_chapters", "difficulty"}
 VALID_DIFFICULTIES = {"Simple", "Medium", "Complex", "Calculation"}
+
+GOLDEN_PATH = Path(__file__).parent.parent / "data" / "eval" / "golden_answers.json"
+DEFAULT_RAGAS_OUTPUT = Path(__file__).parent.parent / "data" / "eval" / "ragas_results.json"
+DEFAULT_PARTIAL_PATH = Path(__file__).parent.parent / "data" / "eval" / "ragas_results_partial.json"
 
 
 # ---------------------------------------------------------------------------
@@ -228,6 +235,106 @@ def run_evaluation(
 
 
 # ---------------------------------------------------------------------------
+# RAGAS Evaluation
+# ---------------------------------------------------------------------------
+
+
+def run_generate_golden(queries: list[dict], verbose: bool = False) -> None:
+    """Generate golden answers dan simpan ke GOLDEN_PATH."""
+    from src.agents.graph import build_phase3_graph  # noqa: PLC0415
+    from src.evaluation.golden_generator import generate_golden_answers  # noqa: PLC0415
+
+    print("Building Phase 3 graph untuk golden generation...")
+    graph = build_phase3_graph()
+    print(f"Generating golden answers untuk {len(queries)} queries...")
+    answers = generate_golden_answers(
+        queries=queries, graph=graph, output_path=GOLDEN_PATH, verbose=verbose
+    )
+    ok = sum(1 for v in answers.values() if v.get("golden_answer"))
+    print(f"\nGolden answers: {ok}/{len(queries)} berhasil")
+    print(f"Saved to: {GOLDEN_PATH}")
+
+
+def run_ragas(
+    queries: list[dict],
+    output_path: Path,
+    batch_size: int | None,
+    resume: bool,
+    inter_query_delay: float,
+    inter_judge_delay: float,
+    golden_file: Path | None,
+    verbose: bool,
+) -> None:
+    """Jalankan RAGAS evaluation dan simpan hasil ke backend DB."""
+    from src.agents.graph import build_phase3_graph  # noqa: PLC0415
+    from src.evaluation.golden_generator import load_golden_answers  # noqa: PLC0415
+    from src.evaluation.ragas_runner import run_ragas_evaluation  # noqa: PLC0415
+
+    # Load golden answers
+    golden_path = golden_file or GOLDEN_PATH
+    golden_answers = load_golden_answers(golden_path)
+    if not golden_answers:
+        print("WARNING: golden_answers.json tidak ditemukan. Context Recall akan None.")
+        print(f"  Jalankan dulu: python scripts/evaluate_retrieval.py --generate-golden")
+
+    print("Building Phase 3 graph...")
+    graph = build_phase3_graph()
+
+    print(f"Menjalankan RAGAS evaluation ({batch_size or len(queries)} queries)...")
+    result = asyncio.run(
+        run_ragas_evaluation(
+            queries=queries,
+            golden_answers=golden_answers,
+            graph=graph,
+            output_path=output_path,
+            partial_path=DEFAULT_PARTIAL_PATH,
+            batch_size=batch_size,
+            resume=resume,
+            inter_query_delay=inter_query_delay,
+            inter_judge_delay=inter_judge_delay,
+            verbose=verbose,
+        )
+    )
+
+    summary = result["summary"]
+    print()
+    print("=" * 50)
+    print("RAGAS Evaluation Summary")
+    print("=" * 50)
+    cp = summary.get("context_precision")
+    cr = summary.get("context_recall")
+    af = summary.get("answer_faithfulness")
+    ar = summary.get("answer_relevance")
+    ra = summary.get("retrieval_accuracy", 0)
+    print(f"Context Precision:    {cp:.3f}" if cp is not None else "Context Precision:    N/A")
+    print(f"Context Recall:       {cr:.3f}" if cr is not None else "Context Recall:       N/A")
+    print(f"Answer Faithfulness:  {af:.3f}" if af is not None else "Answer Faithfulness:  N/A")
+    print(f"Answer Relevance:     {ar:.3f}" if ar is not None else "Answer Relevance:     N/A")
+    print(f"Retrieval Accuracy:   {ra * 100:.1f}%")
+    print(f"Results saved to:     {output_path}")
+
+    # Simpan ke backend DB (opsional — backend harus berjalan)
+    try:
+        import httpx  # noqa: PLC0415
+        from config.settings import settings  # noqa: PLC0415
+
+        resp = httpx.post(
+            "http://localhost:8000/api/eval/runs",
+            json={
+                "summary": summary,
+                "results": result["results"],
+                "model": settings.llm_model,
+            },
+            timeout=10.0,
+        )
+        if resp.status_code == 200:
+            print("Results saved to backend DB (via /api/eval/runs)")
+    except Exception:  # noqa: BLE001
+        print("NOTE: Backend tidak berjalan — results tidak disimpan ke DB.")
+        print("       Jalankan backend lalu POST manual dari ragas_results.json")
+
+
+# ---------------------------------------------------------------------------
 # CLI Entry Point
 # ---------------------------------------------------------------------------
 
@@ -253,12 +360,71 @@ def main() -> None:
         action="store_true",
         help="Print per-query expected vs cited books and response snippet",
     )
+    # RAGAS flags
+    parser.add_argument(
+        "--ragas",
+        action="store_true",
+        help="Jalankan full RAGAS evaluation (4 metrics via LLM judge)",
+    )
+    parser.add_argument(
+        "--generate-golden",
+        action="store_true",
+        help="Generate golden answers sekali untuk Context Recall",
+    )
+    parser.add_argument(
+        "--ragas-output",
+        type=Path,
+        default=DEFAULT_RAGAS_OUTPUT,
+        help="Output path untuk RAGAS results (default: data/eval/ragas_results.json)",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        help="Hanya proses N queries pertama (untuk audit/test)",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Skip queries yang sudah selesai (resume dari checkpoint)",
+    )
+    parser.add_argument(
+        "--inter-query-delay",
+        type=float,
+        default=5.0,
+        help="Detik jeda antar query (mitigasi rate limit, default: 5)",
+    )
+    parser.add_argument(
+        "--inter-judge-delay",
+        type=float,
+        default=2.0,
+        help="Detik jeda antar judge call (default: 2)",
+    )
+    parser.add_argument(
+        "--golden-file",
+        type=Path,
+        default=None,
+        help="Path ke golden answers JSON kustom",
+    )
     args = parser.parse_args()
 
     queries = load_eval_queries(EVAL_QUERIES_PATH)
 
     if args.dry_run:
         run_dry_run(queries)
+    elif args.generate_golden:
+        run_generate_golden(queries, verbose=args.verbose)
+    elif args.ragas:
+        run_ragas(
+            queries=queries,
+            output_path=args.ragas_output,
+            batch_size=args.batch_size,
+            resume=args.resume,
+            inter_query_delay=args.inter_query_delay,
+            inter_judge_delay=args.inter_judge_delay,
+            golden_file=args.golden_file,
+            verbose=args.verbose,
+        )
     else:
         run_evaluation(queries, args.output, verbose=args.verbose)
 
