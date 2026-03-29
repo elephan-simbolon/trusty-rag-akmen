@@ -25,7 +25,7 @@ function ScoreCell({ score }: { score: number | null }) {
 const DIFFICULTIES = ["All", "Simple", "Medium", "Complex", "Calculation"] as const;
 
 export function QueryResultTable({ results }: QueryResultTableProps) {
-  const [filter, setFilter] = useState<string>("All");
+  const [filter, setFilter] = useState<typeof DIFFICULTIES[number]>("All");
 
   const filtered = filter === "All" ? results : results.filter((r) => r.difficulty === filter);
 

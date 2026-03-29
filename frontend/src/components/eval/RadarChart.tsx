@@ -1,10 +1,7 @@
+import type { EvalMetricScores } from "../../types/eval";
+
 interface RadarChartProps {
-  scores: {
-    context_precision: number | null;
-    context_recall: number | null;
-    answer_faithfulness: number | null;
-    answer_relevance: number | null;
-  };
+  scores: EvalMetricScores;
 }
 
 const SIZE = 200;

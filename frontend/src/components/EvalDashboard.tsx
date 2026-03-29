@@ -1,4 +1,5 @@
 import { BarChart3, RefreshCw } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { MetricCard } from "./eval/MetricCard";
 import { RadarChart } from "./eval/RadarChart";
@@ -39,7 +40,7 @@ export function EvalDashboard() {
             disabled={loading}
             className="gap-1.5"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
             Refresh
           </Button>
         </div>
