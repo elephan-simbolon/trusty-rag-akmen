@@ -1,6 +1,5 @@
 """Tests untuk backend/eval_db.py — SQLite CRUD eval_runs."""
 
-import json
 import pytest
 
 
@@ -60,4 +59,34 @@ async def test_get_latest_eval_run_empty(tmp_path, monkeypatch):
     monkeypatch.setattr(eval_db, "DB_PATH", tmp_path / "eval_empty.db")
 
     result = await eval_db.get_latest_eval_run()
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_eval_run_by_id(tmp_path, monkeypatch):
+    """get_eval_run() mengembalikan full record untuk ID yang valid."""
+    import backend.eval_db as eval_db
+
+    monkeypatch.setattr(eval_db, "DB_PATH", tmp_path / "eval_getid.db")
+
+    summary = {"context_precision": 0.75, "total_queries": 1}
+    results = [{"id": "EVAL-01", "context_precision": 0.75}]
+    run_id = await eval_db.save_eval_run(summary=summary, results=results, model="test-model")
+
+    run = await eval_db.get_eval_run(run_id)
+    assert run is not None
+    assert run["id"] == run_id
+    assert run["summary"]["context_precision"] == 0.75
+    assert len(run["results"]) == 1
+    assert run["model"] == "test-model"
+
+
+@pytest.mark.asyncio
+async def test_get_eval_run_not_found(tmp_path, monkeypatch):
+    """get_eval_run() mengembalikan None untuk ID yang tidak ada."""
+    import backend.eval_db as eval_db
+
+    monkeypatch.setattr(eval_db, "DB_PATH", tmp_path / "eval_notfound.db")
+
+    result = await eval_db.get_eval_run("nonexistent-id")
     assert result is None

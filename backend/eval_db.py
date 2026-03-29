@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import aiosqlite
 
+# Shared intentionally: eval_runs table co-habitats dengan history table di file yang sama.
 DB_PATH = Path(__file__).parent / "history.db"
 
 _CREATE_SQL = """
