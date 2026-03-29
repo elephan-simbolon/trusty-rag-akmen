@@ -89,16 +89,20 @@ async def _score_single_query(
     retrieved_contexts: list[str],
     golden_answer: str,
     llm,
+    embeddings,
     inter_judge_delay: float = 2.0,
 ) -> dict[str, float | None]:
-    """Jalankan 4 ragas metrics untuk satu query. Return dict scores."""
+    """Jalankan 4 ragas metrics untuk satu query. Return dict scores.
+
+    ragas 0.4.x API: setiap metric punya .ascore(**kwargs) dengan signature berbeda.
+    SingleTurnSample tidak dipakai — tiap metric menerima field langsung.
+    """
     from ragas.metrics.collections import (
         ContextPrecisionWithoutReference,
         ContextRecall,
         Faithfulness,
         AnswerRelevancy,
     )
-    from ragas.dataset_schema import SingleTurnSample
 
     scores: dict[str, float | None] = {
         "context_precision": None,
@@ -107,44 +111,52 @@ async def _score_single_query(
         "answer_relevance": None,
     }
 
-    sample_base = SingleTurnSample(
-        user_input=query,
-        response=response,
-        retrieved_contexts=retrieved_contexts,
-        reference=golden_answer,
-    )
-
-    # Context Precision (tanpa reference)
+    # Context Precision: ascore(user_input, response, retrieved_contexts)
     try:
         scorer = ContextPrecisionWithoutReference(llm=llm)
-        result = await scorer.single_turn_ascore(sample_base)
+        result = await scorer.ascore(
+            user_input=query,
+            response=response,
+            retrieved_contexts=retrieved_contexts,
+        )
         scores["context_precision"] = round(float(result), 4)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Context Precision scoring failed: %s", exc)
     await asyncio.sleep(inter_judge_delay)
 
-    # Context Recall (butuh reference/golden)
+    # Context Recall: ascore(user_input, retrieved_contexts, reference)
     try:
         scorer = ContextRecall(llm=llm)
-        result = await scorer.single_turn_ascore(sample_base)
+        result = await scorer.ascore(
+            user_input=query,
+            retrieved_contexts=retrieved_contexts,
+            reference=golden_answer,
+        )
         scores["context_recall"] = round(float(result), 4)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Context Recall scoring failed: %s", exc)
     await asyncio.sleep(inter_judge_delay)
 
-    # Answer Faithfulness
+    # Faithfulness: ascore(user_input, response, retrieved_contexts)
     try:
         scorer = Faithfulness(llm=llm)
-        result = await scorer.single_turn_ascore(sample_base)
+        result = await scorer.ascore(
+            user_input=query,
+            response=response,
+            retrieved_contexts=retrieved_contexts,
+        )
         scores["answer_faithfulness"] = round(float(result), 4)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Answer Faithfulness scoring failed: %s", exc)
     await asyncio.sleep(inter_judge_delay)
 
-    # Answer Relevance
+    # AnswerRelevancy: butuh embeddings di __init__, ascore(user_input, response)
     try:
-        scorer = AnswerRelevancy(llm=llm)
-        result = await scorer.single_turn_ascore(sample_base)
+        scorer = AnswerRelevancy(llm=llm, embeddings=embeddings)
+        result = await scorer.ascore(
+            user_input=query,
+            response=response,
+        )
         scores["answer_relevance"] = round(float(result), 4)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Answer Relevance scoring failed: %s", exc)
@@ -183,14 +195,16 @@ async def run_ragas_evaluation(
     """
     from openai import AsyncOpenAI
     from ragas.llms import llm_factory
+    from ragas.embeddings import OpenAIEmbeddings
     from config.settings import settings
 
-    # Setup ragas LLM dengan SiliconFlow client
+    # Setup ragas LLM + embeddings dengan SiliconFlow client
     client = AsyncOpenAI(
         api_key=settings.siliconflow_api_key.get_secret_value(),
         base_url=settings.siliconflow_base_url,
     )
     ragas_llm = llm_factory(settings.llm_model, client=client)
+    ragas_embeddings = OpenAIEmbeddings(client=client, model=settings.embedding_model)
 
     # Load partial checkpoint jika resume
     completed_results: list[dict] = load_partial_results(partial_path) if resume else []
@@ -254,6 +268,7 @@ async def run_ragas_evaluation(
             retrieved_contexts=retrieved_contexts,
             golden_answer=golden,
             llm=ragas_llm,
+            embeddings=ragas_embeddings,
             inter_judge_delay=inter_judge_delay,
         )
 

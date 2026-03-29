@@ -94,6 +94,10 @@ def _build_ragas_sys_modules_patch():
     mock_ragas_llms_mod = MagicMock()
     mock_ragas_llms_mod.llm_factory = MagicMock(return_value=MagicMock())
 
+    # Mock modul ragas.embeddings
+    mock_ragas_embeddings_mod = MagicMock()
+    mock_ragas_embeddings_mod.OpenAIEmbeddings = MagicMock(return_value=MagicMock())
+
     # Mock modul config.settings
     mock_config_settings_mod = MagicMock()
     mock_config_settings_mod.settings = mock_settings_obj
@@ -102,6 +106,7 @@ def _build_ragas_sys_modules_patch():
         "openai": mock_openai_mod,
         "ragas": MagicMock(),
         "ragas.llms": mock_ragas_llms_mod,
+        "ragas.embeddings": mock_ragas_embeddings_mod,
         "config.settings": mock_config_settings_mod,
     }
 
