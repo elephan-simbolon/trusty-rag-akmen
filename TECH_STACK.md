@@ -23,7 +23,7 @@ Dokumentasi lengkap teknologi, library, tools, dan services yang digunakan proye
 |---|---|---|
 | LangGraph | 1.1.3 | Agent orchestration — StateGraph untuk query pipeline |
 | LangChain | 1.2.13 | LLM application framework |
-| LightRAG (HKU) | 1.4.11 | Knowledge graph RAG — entity extraction & graph retrieval |
+| fast-graphrag (Circlemind) | 0.0.4 | Knowledge graph RAG — entity extraction & graph retrieval |
 | OpenAI (client) | 2.29.0 | Client untuk SiliconFlow API (OpenAI-compatible) |
 
 ### Vector Database & Retrieval
@@ -31,7 +31,7 @@ Dokumentasi lengkap teknologi, library, tools, dan services yang digunakan proye
 | Teknologi | Versi | Kegunaan |
 |---|---|---|
 | Qdrant (client) | 1.17.1 | Vector database — dense (cosine) + sparse (BM25/IDF) |
-| LightRAG nano-vectordb | built-in | File-based JSON storage untuk knowledge graph (terpisah dari Qdrant) |
+| fast-graphrag storage | built-in | File-based storage untuk knowledge graph (terpisah dari Qdrant) |
 
 ### Document Processing
 
@@ -46,7 +46,7 @@ Dokumentasi lengkap teknologi, library, tools, dan services yang digunakan proye
 | Teknologi | Versi | Kegunaan |
 |---|---|---|
 | PyTorch | 2.10.0+cu126 | CUDA 12.6 — hanya untuk PDF parsing lokal (GTX 1660 Ti 6GB) |
-| numpy | transitive | Array operations untuk LightRAG embedding (import langsung, bukan di pyproject.toml) |
+| numpy | transitive | Array operations (import langsung, bukan di pyproject.toml) |
 
 ### Utilities
 
@@ -132,7 +132,7 @@ Dokumentasi lengkap teknologi, library, tools, dan services yang digunakan proye
 | SiliconFlow | Qwen3-Embedding-8B (1024 dim) | Embedding (asymmetric: query vs document) |
 | SiliconFlow | Qwen3-Reranker-8B | Reranking via `/rerank` endpoint (httpx) |
 | SiliconFlow | Qwen2.5-VL-72B-Instruct | VLM untuk diagram captioning |
-| DeepSeek | deepseek-chat (V3.2) | LLM untuk LightRAG entity extraction (primary, fallback ke SiliconFlow) |
+| DeepSeek | deepseek-chat (V3.2) | LLM untuk GraphRAG entity extraction (primary, fallback ke SiliconFlow) |
 
 ### Infrastructure Services
 
@@ -224,7 +224,7 @@ Test markers: `integration` (live services), `e2e` (end-to-end), `gpu` (NVIDIA G
 
 | Format | Kegunaan |
 |---|---|
-| JSON | Chunks, checkpoints, eval queries, LightRAG cache, API payloads, SSE events |
+| JSON | Chunks, checkpoints, eval queries, GraphRAG cache, API payloads, SSE events |
 | Markdown | Parsed PDF content (intermediate format dari Docling/MinerU) |
 | PDF | Source documents (textbook) |
 | TOML | `pyproject.toml` project config |
@@ -239,7 +239,7 @@ Test markers: `integration` (live services), `e2e` (end-to-end), `gpu` (NVIDIA G
 | Storage | Teknologi | Lokasi | Kegunaan |
 |---|---|---|---|
 | Vector DB | Qdrant Cloud | Remote | Dense + sparse vectors untuk retrieval |
-| Knowledge Graph | LightRAG nano-vectordb | `./lightrag_storage/` (lokal, file-based JSON) | Entity & relationship storage |
+| Knowledge Graph | fast-graphrag | `./graphrag_storage/` (lokal, file-based) | Entity & relationship storage |
 | Chat History | SQLite | `backend/history.db` | Query history, feedback, titles |
 | Chunk Backup | JSON files | `data/chunks/` | Serialized chunks per buku |
 | Embedding Checkpoints | JSON files | `data/checkpoints/` | Resume-safe embedding progress |
@@ -256,7 +256,7 @@ Test markers: `integration` (live services), `e2e` (end-to-end), `gpu` (NVIDIA G
 | `SILICONFLOW_API_KEY` | SiliconFlow API (embedding, LLM, reranker, VLM) |
 | `QDRANT_URL` | Qdrant vector database endpoint |
 | `QDRANT_API_KEY` | Qdrant authentication |
-| `DEEPSEEK_API_KEY` | DeepSeek API untuk LightRAG (kosong = fallback SiliconFlow) |
+| `DEEPSEEK_API_KEY` | DeepSeek API untuk GraphRAG (kosong = fallback SiliconFlow) |
 
 ### Optional
 
@@ -266,5 +266,5 @@ Test markers: `integration` (live services), `e2e` (end-to-end), `gpu` (NVIDIA G
 | `LANGFUSE_SECRET_KEY` | Langfuse observability |
 | `LANGFUSE_BASE_URL` | Langfuse endpoint |
 | `PYTORCH_CUDA_ALLOC_CONF` | CUDA memory config |
-| `LIGHTRAG_LLM_MODEL` | Override model untuk LightRAG (default: `deepseek-chat`) |
+| `GRAPHRAG_LLM_MODEL` | Override model untuk GraphRAG (default: `deepseek-chat`) |
 | `VITE_API_BASE_URL` | Frontend API endpoint (default: `http://localhost:8000`) |

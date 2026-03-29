@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Trusty RAG Akmen** — AI-powered cost & management accounting (Akuntansi Biaya dan Manajemen) assistant using Retrieval-Augmented Generation. Targets Indonesian accounting professionals with bilingual (Indonesian prose + English technical terms) responses. Built on Qwen3 models via SiliconFlow API, Qdrant vector DB, and LightRAG knowledge graph.
+**Trusty RAG Akmen** — AI-powered cost & management accounting (Akuntansi Biaya dan Manajemen) assistant using Retrieval-Augmented Generation. Targets Indonesian accounting professionals with bilingual (Indonesian prose + English technical terms) responses. Built on Qwen3 models via SiliconFlow API, Qdrant vector DB, and fast-graphrag knowledge graph.
 
 ## Commands
 
@@ -25,11 +25,11 @@ uv run pytest -m "not integration and not gpu"  # skip live services and GPU tes
 uv run python scripts/ingest.py path/to/textbook.pdf
 uv run python scripts/ingest.py data/pdfs/ --book-title "Cost Accounting"
 
-# Ingest Phase 1 chunks into LightRAG knowledge graph (audit mode: 50 chunks)
-uv run python scripts/ingest_lightrag.py data/chunks_backup.json
-uv run python scripts/ingest_lightrag.py data/chunks_backup.json --full
-uv run python scripts/ingest_lightrag.py data/chunks_backup.json --resume
-uv run python scripts/ingest_lightrag.py data/chunks_backup.json --full --model deepseek-chat  # override model
+# Ingest Phase 1 chunks into fast-graphrag knowledge graph (audit mode: 50 chunks)
+uv run python scripts/ingest_graphrag.py data/chunks_backup.json
+uv run python scripts/ingest_graphrag.py data/chunks_backup.json --full
+uv run python scripts/ingest_graphrag.py data/chunks_backup.json --full --model deepseek-chat  # override model
+uv run python scripts/ingest_graphrag.py data/chunks_backup.json --full --batch-size 100  # smaller batches
 
 # Test a query without UI
 uv run python scripts/test_query.py "Apa itu break-even point?" -v
@@ -83,13 +83,13 @@ The system has two pipelines: **ingestion** (PDF → indexed chunks) and **query
 | `src/retrieval/preprocessor.py` | Glossary expansion (Indonesian→English) for BM25 + query embedding with instruction prefix |
 | `src/retrieval/reranker.py` | Qwen3-Reranker-8B via SiliconFlow `/rerank` endpoint (httpx, not OpenAI client) |
 | `src/generation/generator.py` | Bilingual response generation with two prompt modes: textbook-only (`SYSTEM_PROMPT_GENERATOR`) and multi-source synthesis (`SYSTEM_PROMPT_SYNTHESIS`) |
-| `src/knowledge_graph/` | LightRAG integration: entity normalization, graph ingestion, DeepSeek LLM + SiliconFlow embedding |
+| `src/knowledge_graph/` | fast-graphrag integration: entity normalization, graph ingestion, DeepSeek LLM + SiliconFlow embedding |
 | `config/settings.py` | Pydantic Settings loaded from `.env` — all API keys, model names, Qdrant config |
 | `config/glossary.py` | Bidirectional English↔Indonesian accounting glossary (130+ terms) |
 | `config/prompts.py` | System prompts for generation (3 variants: standard, calculation, synthesis) |
 | `backend/main.py` | FastAPI backend with SSE streaming + history/feedback REST API (see API section below) |
 | `backend/history_db.py` | SQLite-backed chat history persistence (save, list, delete, feedback, title) |
-| `src/services/graph_service.py` | Singleton access to compiled Phase 3 LangGraph + LightRAG instance |
+| `src/services/graph_service.py` | Singleton access to compiled Phase 3 LangGraph + GraphRAG instance |
 | `src/monitoring/langfuse_client.py` | Langfuse observability (optional, enabled via `.env`). Lazy imports — gracefully degrades when keys absent |
 | `frontend/` | React 19 + TypeScript + Vite + Tailwind v4 + shadcn/ui + react-markdown + sonner (toasts) |
 
@@ -115,7 +115,7 @@ The system has two pipelines: **ingestion** (PDF → indexed chunks) and **query
 
 Production builds: if `frontend/dist/` exists, backend auto-mounts it as SPA with `/assets` static files.
 
-LightRAG lifecycle: initialized in FastAPI `lifespan` context manager → singleton via `graph_service.set_lightrag()` → finalized on shutdown.
+GraphRAG lifecycle: initialized in FastAPI `lifespan` context manager → singleton via `graph_service.set_graphrag()`.
 
 ## Test Markers
 
@@ -127,13 +127,18 @@ gpu          — requires NVIDIA GPU
 
 Shared fixtures in `tests/conftest.py`: `mock_siliconflow`, `mock_qdrant_client`, `sample_markdown`, `sample_chunks`.
 
-## LightRAG Ingestion Stack
+## GraphRAG Ingestion Stack
 
-LightRAG menggunakan 2 backend terpisah:
+fast-graphrag (Circlemind) menggunakan 2 backend terpisah:
 - **LLM**: DeepSeek API (`deepseek-chat`, no hard rate limit). Fallback SiliconFlow jika `DEEPSEEK_API_KEY` kosong.
-- **Embedding**: SiliconFlow Qwen3-Embedding-8B (1024 dim, 500K+ TPM terpisah dari LLM rate limit).
+- **Embedding**: SiliconFlow Qwen3-Embedding-8B (4096 dim native, 500K+ TPM terpisah dari LLM rate limit).
 
-Throughput realistis: ~2-3 jam per buku besar (1000+ filtered chunks). Bottleneck utama adalah LightRAG per-doc processing overhead (~47s/doc avg), bukan rate limit.
+Concurrency diatur via `CONCURRENT_TASK_LIMIT` env var (default: 8).
+Crash safety via `n_checkpoints=2` pada GraphRAG instance.
+
+**Edge upsert policy**: `EdgeUpsertPolicy_UpsertIfValidNodes` — skip LLM-based edge merging untuk mencegah token overflow pada buku tebal. Default fast-graphrag (`EdgeUpsertPolicy_UpsertValidAndMergeSimilarByLLM`) mengirim seluruh edge list ke LLM dalam satu prompt, menyebabkan DeepSeek 12K output cap terlampaui. Entity deduplication (node summarization) tetap berjalan normal.
+
+**Batch ingestion**: Insert per 200 chunks (default `--batch-size 200`). Kontrol via CLI flag `--batch-size`.
 
 Filtered chunks = hanya `narrative_text` + `example_problem` (~30-50% dari total chunks).
 Jalankan audit dulu (50 chunks, tanpa `--full`) sebelum full ingestion untuk memvalidasi kualitas entity extraction.
@@ -155,7 +160,7 @@ All documentation and user-facing content is in **Indonesian** (Bahasa Indonesia
 | Phase | Focus | Status |
 |-------|-------|--------|
 | 1 | MVP: Basic RAG + Qdrant + Qwen3 API | Done |
-| 2 | GraphRAG integration with LightRAG | Done |
+| 2 | GraphRAG integration with fast-graphrag | Done |
 | 3 | Agentic orchestration with LangGraph + CRAG | Done |
 | 4 | Scale to full corpus (100 textbooks) + optimization | Planned |
 | 5 | Polish, documentation, beta launch | In Progress |

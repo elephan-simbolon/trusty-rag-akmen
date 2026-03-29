@@ -15,8 +15,8 @@ frontend/.env.local
 # Backend
 backend/history.db
 
-# LightRAG LLM response cache (ephemeral, grows with use — see LightRAG official .gitignore)
-lightrag_storage/kv_store_llm_response_cache.json
+# GraphRAG storage (local file-based, re-ingest to rebuild)
+graphrag_storage/
 
 # GSD worktrees (temporary development branches)
 .claude/worktrees/

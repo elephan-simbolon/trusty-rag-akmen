@@ -16,7 +16,7 @@ Covers:
 def _make_phase3_graph_with_mocks():
     """Build Phase 3 graph.
 
-    All LightRAG/SiliconFlow/Qdrant imports in nodes.py are lazy (inside function
+    All GraphRAG/SiliconFlow/Qdrant imports in nodes.py are lazy (inside function
     bodies), so importing graph.py does not trigger any external service connections
     at import time. No sys.modules patching needed.
     """

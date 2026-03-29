@@ -83,7 +83,6 @@ class TestRAGStateFields:
 
     PHASE_2_FIELDS = {
         "graph_docs",
-        "query_mode",
     }
 
     PHASE_3_FIELDS = {
@@ -113,10 +112,10 @@ class TestRAGStateFields:
             assert field in annotations, f"Phase 3 field '{field}' missing from RAGState"
 
     def test_total_field_count(self):
-        """RAGState should have exactly 15 fields (8 Phase 1 + 2 Phase 2 + 5 Phase 3)."""
+        """RAGState should have exactly 14 fields (8 Phase 1 + 1 Phase 2 + 5 Phase 3)."""
         annotations = RAGState.__annotations__
-        assert len(annotations) == 15, (
-            f"Expected 15 fields, got {len(annotations)}. Fields: {sorted(annotations.keys())}"
+        assert len(annotations) == 14, (
+            f"Expected 14 fields, got {len(annotations)}. Fields: {sorted(annotations.keys())}"
         )
 
     def test_conversation_history_uses_annotated_reducer(self):

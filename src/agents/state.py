@@ -19,8 +19,7 @@ class RAGState(TypedDict):
     citations: Optional[list[dict]]
     error: Optional[str]
     # Phase 2 fields (unchanged)
-    graph_docs: Optional[list[dict]]  # LightRAG graph results
-    query_mode: Optional[str]  # "local" or "hybrid" (default: "hybrid")
+    graph_docs: Optional[list[dict]]  # GraphRAG graph results
     # Phase 3 additions
     query_type: Optional[str]  # "Simple"|"Medium"|"Complex"|"Calculation"
     crag_grade: Optional[str]  # "CORRECT"|"AMBIGUOUS"|"INCORRECT"

@@ -8,7 +8,7 @@ Verifies that when graph_docs contains multi-source context:
 5. Response includes attribution structure (comparison instruction visible in prompt)
 6. Multiple graph_docs texts are joined correctly into one context block
 
-No live API calls — all LightRAG and SiliconFlow interactions are mocked.
+No live API calls — all GraphRAG and SiliconFlow interactions are mocked.
 """
 
 from unittest.mock import patch
@@ -32,7 +32,7 @@ MULTI_SOURCE_GRAPH_DOCS = [
             "content_type": "graph_context",
             "page_start": 0,
             "page_end": 0,
-            "section_path": "LightRAG/hybrid mode",
+            "section_path": "GraphRAG/context",
         },
         "score": 1.0,
     },
@@ -47,7 +47,7 @@ MULTI_SOURCE_GRAPH_DOCS = [
             "content_type": "graph_context",
             "page_start": 0,
             "page_end": 0,
-            "section_path": "LightRAG/hybrid mode",
+            "section_path": "GraphRAG/context",
         },
         "score": 1.0,
     },

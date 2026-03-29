@@ -1,6 +1,6 @@
 """Entity name normalizer for accounting knowledge graph deduplication.
 
-Resolves the core entity deduplication problem: LightRAG's LLM-based extraction
+Resolves the core entity deduplication problem: LLM-based extraction
 creates separate graph nodes for semantically identical entities appearing in
 different surface forms across textbooks (e.g., "ABC Costing", "Activity-Based
 Costing", "ABC method" all become separate nodes without normalization).
@@ -12,7 +12,7 @@ Strategy (priority order):
 4. Return raw name unchanged
 
 Used by graph_ingestion.py post-extraction to clean up entity names before
-they are written into the LightRAG nano-vectordb storage.
+they are written into the GraphRAG storage.
 """
 
 from config.glossary import GLOSSARY_REVERSE
@@ -58,7 +58,7 @@ def normalize_entity_name(raw_name: str) -> str:
     4. No match -> return raw_name unchanged
 
     Args:
-        raw_name: Raw entity name as extracted by LightRAG LLM.
+        raw_name: Raw entity name as extracted by GraphRAG LLM.
 
     Returns:
         Canonical entity name, or raw_name if no normalization applies.

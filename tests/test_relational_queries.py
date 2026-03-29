@@ -1,18 +1,15 @@
 """Integration tests for relational query end-to-end flow — GEN-05.
 
-Verifies that a relational query (containing 'hubungan', 'prasyarat', etc.)
-flows through the full pipeline:
-1. graph_retrieve_node uses "local" mode for relational queries
-2. graph_retrieve_node returns non-empty graph_docs in state
-3. generate_node receives non-empty graph_context extracted from graph_docs
-4. generate_response is called with non-empty graph_context
-5. The synthesis prompt (SYSTEM_PROMPT_SYNTHESIS) is used, not SYSTEM_PROMPT_GENERATOR
+Verifies that a relational query flows through the full pipeline:
+1. graph_retrieve_node returns non-empty graph_docs in state
+2. generate_node receives non-empty graph_context extracted from graph_docs
+3. generate_response is called with non-empty graph_context
+4. The synthesis prompt (SYSTEM_PROMPT_SYNTHESIS) is used, not SYSTEM_PROMPT_GENERATOR
 
-No live API calls — all LightRAG, SiliconFlow interactions are mocked.
+No live API calls — all GraphRAG, SiliconFlow interactions are mocked.
 """
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from src.agents.nodes import generate_node, graph_retrieve_node
 
@@ -37,52 +34,59 @@ MOCK_VECTOR_DOCS = [
     },
 ]
 
-MOCK_GRAPH_RESULT = (
-    "ABC Costing -> REQUIRES -> Cost Driver. "
-    "Cost Driver is a prerequisite concept for Activity-Based Costing implementation."
+class MockContext:
+    """Mimics TContext dataclass with entities, relationships, chunks as List[Tuple[item, score]]."""
+    def __init__(self, entities=None, relationships=None, chunks=None):
+        self.entities = entities or []
+        self.relationships = relationships or []
+        self.chunks = chunks or []
+
+
+MOCK_GRAPH_CONTEXT = MockContext(
+    entities=[("ABC Costing", 0.9), ("Cost Driver", 0.8)],
+    relationships=[("ABC Costing -> REQUIRES -> Cost Driver", 0.85)],
+    chunks=[(
+        "ABC Costing -> REQUIRES -> Cost Driver. "
+        "Cost Driver is a prerequisite concept for Activity-Based Costing implementation.",
+        0.7,
+    )],
 )
 
 
+class MockAnswer:
+    def __init__(self, context):
+        self.context = context
+        self.response = ""
+
+
 # ---------------------------------------------------------------------------
-# Stage 1: graph_retrieve_node uses local mode for relational query
+# Stage 1: graph_retrieve_node returns non-empty graph_docs
 # ---------------------------------------------------------------------------
-
-
-def test_relational_query_triggers_local_mode_in_graph_retrieve_node():
-    """graph_retrieve_node selects local mode when query contains 'hubungan'."""
-    mock_rag = MagicMock()
-    mock_rag.aquery = AsyncMock(return_value=MOCK_GRAPH_RESULT)
-
-    with patch("src.agents.nodes.get_lightrag", return_value=mock_rag):
-        state = {"query": RELATIONAL_QUERY, "error": None}
-        result = asyncio.run(graph_retrieve_node(state))
-
-    assert result.get("query_mode") == "local"
 
 
 def test_relational_query_graph_retrieve_returns_non_empty_graph_docs():
     """graph_retrieve_node returns non-empty graph_docs for relational query."""
-    mock_rag = MagicMock()
-    mock_rag.aquery = AsyncMock(return_value=MOCK_GRAPH_RESULT)
+    mock_grag = MagicMock()
+    mock_grag.query = MagicMock(return_value=MockAnswer(context=MOCK_GRAPH_CONTEXT))
 
-    with patch("src.agents.nodes.get_lightrag", return_value=mock_rag):
+    with patch("src.agents.nodes.get_graphrag", return_value=mock_grag):
         state = {"query": RELATIONAL_QUERY, "error": None}
-        result = asyncio.run(graph_retrieve_node(state))
+        result = graph_retrieve_node(state)
 
     assert "graph_docs" in result
     graph_docs = result["graph_docs"]
     assert len(graph_docs) >= 1
-    assert graph_docs[0]["text"] == MOCK_GRAPH_RESULT
+    assert "Cost Driver" in graph_docs[0]["text"]
 
 
 def test_relational_query_graph_docs_contain_graph_result_text():
-    """graph_docs[0]['text'] contains the LightRAG graph result for local query."""
-    mock_rag = MagicMock()
-    mock_rag.aquery = AsyncMock(return_value=MOCK_GRAPH_RESULT)
+    """graph_docs[0]['text'] contains entity and relation info from graph context."""
+    mock_grag = MagicMock()
+    mock_grag.query = MagicMock(return_value=MockAnswer(context=MOCK_GRAPH_CONTEXT))
 
-    with patch("src.agents.nodes.get_lightrag", return_value=mock_rag):
+    with patch("src.agents.nodes.get_graphrag", return_value=mock_grag):
         state = {"query": RELATIONAL_QUERY, "error": None}
-        result = asyncio.run(graph_retrieve_node(state))
+        result = graph_retrieve_node(state)
 
     assert "Cost Driver" in result["graph_docs"][0]["text"]
 
@@ -105,14 +109,14 @@ def test_generate_node_receives_non_empty_graph_context_for_relational_query():
         "reranked_docs": MOCK_VECTOR_DOCS,
         "graph_docs": [
             {
-                "text": MOCK_GRAPH_RESULT,
+                "text": "Entities: ABC Costing; Cost Driver\n\nRelations: ABC Costing -> REQUIRES -> Cost Driver",
                 "metadata": {
                     "book_title": "Knowledge Graph",
                     "chapter": "Multi-source synthesis",
                     "content_type": "graph_context",
                     "page_start": 0,
                     "page_end": 0,
-                    "section_path": "LightRAG/local mode",
+                    "section_path": "GraphRAG/context",
                 },
                 "score": 1.0,
             }
@@ -136,12 +140,13 @@ def test_generate_node_graph_context_contains_graph_docs_text():
         captured_kwargs["graph_context"] = graph_context
         return {"response": "Response.", "citations": []}
 
+    graph_text = "Entities: ABC Costing; Cost Driver"
     state = {
         "query": RELATIONAL_QUERY,
         "reranked_docs": MOCK_VECTOR_DOCS,
         "graph_docs": [
             {
-                "text": MOCK_GRAPH_RESULT,
+                "text": graph_text,
                 "metadata": {"content_type": "graph_context"},
                 "score": 1.0,
             }
@@ -152,7 +157,7 @@ def test_generate_node_graph_context_contains_graph_docs_text():
     with patch("src.agents.nodes.generate_response", side_effect=capture_generate_response):
         generate_node(state)
 
-    assert MOCK_GRAPH_RESULT in captured_kwargs["graph_context"]
+    assert graph_text in captured_kwargs["graph_context"]
 
 
 # ---------------------------------------------------------------------------
@@ -171,16 +176,14 @@ def test_synthesis_prompt_used_when_graph_context_non_empty_for_relational_query
     generate_response(
         query=RELATIONAL_QUERY,
         context_docs=MOCK_VECTOR_DOCS,
-        graph_context=MOCK_GRAPH_RESULT,
+        graph_context="Entities: ABC Costing; Cost Driver\n\nRelations: ABC Costing -> REQUIRES -> Cost Driver",
     )
 
     call_args = mock_llm.call_args
     messages = call_args[0][0] if call_args[0] else call_args[1]["messages"]
     system_msg = messages[0]["content"]
 
-    # Synthesis prompt is used (distinct from SYSTEM_PROMPT_GENERATOR)
     assert "textbook dan knowledge graph" in system_msg
-    # Relational query instruction present in synthesis prompt
     assert "relasional" in system_msg
     assert "hubungan konseptual" in system_msg
 
@@ -192,10 +195,11 @@ def test_user_message_contains_graph_context_for_relational_query(mock_llm):
 
     from src.generation.generator import generate_response
 
+    graph_context_text = "Entities: ABC Costing; Cost Driver"
     generate_response(
         query=RELATIONAL_QUERY,
         context_docs=MOCK_VECTOR_DOCS,
-        graph_context=MOCK_GRAPH_RESULT,
+        graph_context=graph_context_text,
     )
 
     call_args = mock_llm.call_args
@@ -203,7 +207,7 @@ def test_user_message_contains_graph_context_for_relational_query(mock_llm):
     user_msg = messages[1]["content"]
 
     assert "Konteks dari knowledge graph:" in user_msg
-    assert MOCK_GRAPH_RESULT in user_msg
+    assert graph_context_text in user_msg
 
 
 # ---------------------------------------------------------------------------
@@ -221,18 +225,18 @@ def test_full_relational_pipeline_graph_context_reaches_generate_response():
         return {"response": "Final synthesis.", "citations": []}
 
     # Step 1: simulate graph_retrieve_node output
-    mock_rag = MagicMock()
-    mock_rag.aquery = AsyncMock(return_value=MOCK_GRAPH_RESULT)
+    mock_grag = MagicMock()
+    mock_grag.query = MagicMock(return_value=MockAnswer(context=MOCK_GRAPH_CONTEXT))
 
-    with patch("src.agents.nodes.get_lightrag", return_value=mock_rag):
-        graph_result = asyncio.run(graph_retrieve_node({"query": RELATIONAL_QUERY, "error": None}))
+    with patch("src.agents.nodes.get_graphrag", return_value=mock_grag):
+        graph_result = graph_retrieve_node({"query": RELATIONAL_QUERY, "error": None})
 
     # Step 2: merge graph_retrieve output into state for generate_node
     full_state = {
         "query": RELATIONAL_QUERY,
         "reranked_docs": MOCK_VECTOR_DOCS,
         "error": None,
-        **graph_result,  # adds graph_docs and query_mode
+        **graph_result,
     }
 
     # Step 3: run generate_node with merged state
@@ -241,6 +245,6 @@ def test_full_relational_pipeline_graph_context_reaches_generate_response():
 
     # Verify graph_context was non-empty
     assert captured_kwargs.get("graph_context") != ""
-    assert MOCK_GRAPH_RESULT in captured_kwargs["graph_context"]
+    assert "Cost Driver" in captured_kwargs["graph_context"]
     # Verify final result is present
     assert final_result["response"] == "Final synthesis."

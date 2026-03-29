@@ -152,7 +152,7 @@ def test_query_sse_passes_callbacks_to_graph_ainvoke():
 
     MON-04: Without this wiring, Langfuse receives no traces even when a
     CallbackHandler is created. This test:
-    1. Stubs out all heavy dependencies (sse_starlette, FastAPI internals, LightRAG)
+    1. Stubs out all heavy dependencies (sse_starlette, FastAPI internals, GraphRAG)
        so backend.main can be imported in the test environment.
     2. Patches get_langfuse_handler to return a sentinel handler object.
     3. Patches get_graph to return a mock whose ainvoke is an AsyncMock.

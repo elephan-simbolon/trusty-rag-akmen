@@ -9,7 +9,7 @@ from src.retrieval.preprocessor import preprocess_query
 from src.retrieval.query_classifier import is_calculation_query
 from src.retrieval.reranker import rerank_results
 from src.retrieval.vector_search import hybrid_search
-from src.services.graph_service import get_lightrag
+from src.services.graph_service import get_graphrag
 
 logger = logging.getLogger(__name__)
 
@@ -63,62 +63,68 @@ def retrieve_node(state: RAGState) -> dict:
         return {"error": f"Retrieval failed: {e}"}
 
 
-async def graph_retrieve_node(state: RAGState) -> dict:
-    """Retrieve context from LightRAG knowledge graph (hybrid or local mode).
+def graph_retrieve_node(state: RAGState) -> dict:
+    """Retrieve context from fast-graphrag knowledge graph.
 
-    Async node — runs directly in FastAPI event loop, no thread hop.
-    LightRAG instance injected via state['lightrag'] from FastAPI lifespan.
+    Sync node — LangGraph runs it in a thread pool when called via ainvoke().
+    GraphRAG instance injected via graph_service singleton from FastAPI lifespan.
     """
     if state.get("error"):
         return {}
 
-    rag = get_lightrag()
-    if rag is None:
-        logger.error("LightRAG instance not found in graph_service singleton")
+    grag = get_graphrag()
+    if grag is None:
+        logger.warning("GraphRAG instance not available — skipping graph retrieval")
         return {"graph_docs": []}
 
     query = state["query"]
 
-    RELATIONAL_KEYWORDS = [
-        "prerequisite",
-        "prasyarat",
-        "hubungan",
-        "relasi",
-        "sebelum",
-        "setelah",
-        "dasar dari",
-        "basis of",
-    ]
-    query_lower = query.lower()
-    if any(kw in query_lower for kw in RELATIONAL_KEYWORDS):
-        mode = "local"
-    else:
-        mode = state.get("query_mode") or "hybrid"
-
     try:
-        from lightrag import QueryParam
+        from fast_graphrag import QueryParam
 
-        graph_result = await rag.aquery(query, param=QueryParam(mode=mode))
+        answer = grag.query(query, QueryParam(only_context=True))
+        context = answer.context
+
+        parts = []
+        if context.entities:
+            parts.append(
+                "Entities: " + "; ".join(str(e) for e, _ in context.entities)
+            )
+        if context.relationships:
+            parts.append(
+                "Relations: " + "; ".join(str(r) for r, _ in context.relationships)
+            )
+        if context.chunks:
+            parts.append(
+                "Chunks: " + "\n".join(str(c) for c, _ in context.chunks)
+            )
+        graph_text = "\n\n".join(parts) if parts else ""
+
+        logger.debug("GraphRAG context: %d entities, %d relationships, %d chunks",
+                      len(context.entities), len(context.relationships), len(context.chunks))
+
+        if not graph_text:
+            return {"graph_docs": []}
 
         graph_docs = [
             {
-                "text": graph_result,
+                "text": graph_text,
                 "metadata": {
                     "book_title": "Knowledge Graph",
                     "chapter": "Multi-source synthesis",
                     "content_type": "graph_context",
                     "page_start": 0,
                     "page_end": 0,
-                    "section_path": f"LightRAG/{mode} mode",
+                    "section_path": "GraphRAG/context",
                 },
                 "score": 1.0,
             }
         ]
 
-        return {"graph_docs": graph_docs, "query_mode": mode}
+        return {"graph_docs": graph_docs}
 
     except Exception as e:
-        logger.error(f"Graph retrieval failed: {e}")
+        logger.error("Graph retrieval failed: %s", e)
         return {"graph_docs": []}
 
 

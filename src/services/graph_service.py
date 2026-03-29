@@ -1,7 +1,7 @@
 """Singleton access to the compiled LangGraph RAG pipeline."""
 
 _graph = None
-_lightrag = None
+_graphrag = None
 
 
 def get_graph():
@@ -13,10 +13,10 @@ def get_graph():
     return _graph
 
 
-def set_lightrag(rag):
-    global _lightrag
-    _lightrag = rag
+def set_graphrag(grag):
+    global _graphrag
+    _graphrag = grag
 
 
-def get_lightrag():
-    return _lightrag
+def get_graphrag():
+    return _graphrag
