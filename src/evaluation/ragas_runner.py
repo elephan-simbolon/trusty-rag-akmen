@@ -11,19 +11,28 @@ import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_RAGAS_OUTPUT = Path(__file__).parent.parent.parent / "data" / "eval" / "ragas_results.json"
 DEFAULT_PARTIAL_OUTPUT = Path(__file__).parent.parent.parent / "data" / "eval" / "ragas_results_partial.json"
 
+# Jumlah konteks yang dikirim ke RAGAS judge — harus sama dengan reranker_top_k_output
+# dari config/settings.py agar skor mencerminkan apa yang sebenarnya dikembalikan ke user
+RAGAS_CONTEXT_WINDOW = 5
+
 
 def load_partial_results(path: Path) -> list[dict]:
-    """Load partial checkpoint results. Return [] jika file tidak ada."""
+    """Load partial checkpoint results. Return [] jika file tidak ada atau corrupt."""
     if not path.exists():
         return []
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError as exc:
+        logger.warning("Partial checkpoint file corrupted, starting fresh: %s", exc)
+        return []
 
 
 def _save_partial(results: list[dict], path: Path) -> None:
@@ -146,7 +155,7 @@ async def _score_single_query(
 async def run_ragas_evaluation(
     queries: list[dict],
     golden_answers: dict[str, dict],
-    graph,
+    graph: Any,  # CompiledStateGraph — harus expose .invoke()
     output_path: Path = DEFAULT_RAGAS_OUTPUT,
     partial_path: Path = DEFAULT_PARTIAL_OUTPUT,
     batch_size: int | None = None,
@@ -235,7 +244,7 @@ async def run_ragas_evaluation(
         retrieval_pass = any(b in cited_books for b in eq.get("expected_books", []))
 
         # Contexts untuk ragas
-        retrieved_contexts = _build_context_strings(reranked[:5])
+        retrieved_contexts = _build_context_strings(reranked[:RAGAS_CONTEXT_WINDOW])
         golden = golden_answers.get(qid, {}).get("golden_answer", "")
 
         # Jalankan 4 ragas metrics
