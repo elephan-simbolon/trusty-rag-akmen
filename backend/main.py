@@ -187,12 +187,6 @@ class TitleBody(BaseModel):
     title: str
 
 
-class EvalRunBody(BaseModel):
-    summary: dict
-    results: list[dict]
-    model: str = ""
-
-
 @app.patch("/api/history/{history_id}/title")
 async def patch_title(history_id: str, body: TitleBody):
     trimmed = body.title.strip()
@@ -210,6 +204,12 @@ def _sse_event(event_type: str, data: dict) -> dict:
 
 
 # --- Eval endpoints ---
+
+
+class EvalRunBody(BaseModel):
+    summary: dict
+    results: list[dict]
+    model: str = ""
 
 
 @app.post("/api/eval/runs")
