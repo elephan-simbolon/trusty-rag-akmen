@@ -3,6 +3,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+# RETR-03: Label convention — source_domain='consulting' -> [Kerangka N], else -> [Sumber N].
+# build_citations() includes source_domain in the output dict for frontend use.
+# _build_context_block() in generator.py uses the same mapping for the LLM prompt.
+# These two MUST stay in sync — if you change one, change the other.
 def build_citation(metadata: dict) -> str:
     """
     Format a single citation from chunk metadata.
@@ -56,6 +60,7 @@ def build_citations(docs: list[dict]) -> list[dict]:
                 "page_end": metadata.get("page_end", 0),
                 "section_path": metadata.get("section_path", ""),
                 "author": metadata.get("author", ""),
+                "source_domain": metadata.get("source_domain", "accounting"),  # RETR-03
             }
         )
 

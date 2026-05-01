@@ -1,10 +1,4 @@
-"""CLI entry point for ingesting PDF textbooks into the RAG pipeline.
-
-Usage:
-    python scripts/ingest.py path/to/textbook.pdf
-    python scripts/ingest.py data/pdfs/ --book-title "Cost Accounting"
-    python scripts/ingest.py book1.pdf book2.pdf --output-dir data/parsed
-"""
+"""CLI entry point for ingesting PDF textbooks into the RAG pipeline."""
 
 import argparse
 import logging
@@ -20,8 +14,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+from src.ingestion.pipeline import run_ingestion_pipeline  # noqa: E402
 
-def main():
+
+def create_parser() -> argparse.ArgumentParser:
+    """Build and return the ingest CLI argument parser."""
     parser = argparse.ArgumentParser(description="Ingest PDF textbooks into Trusty RAG Akmen")
     parser.add_argument(
         "pdf_paths",
@@ -48,7 +45,31 @@ def main():
         action="store_true",
         help="Enable contextual window embedding: prepend parent section text to each chunk before embedding (CHUNK-05). Increases embedding token cost ~15-25%%.",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--source-domain",
+        default="accounting",
+        choices=["accounting", "consulting"],
+        help=(
+            "Source domain tag for Qdrant payload (default: accounting). "
+            "Use 'consulting' when ingesting consulting/methodology books (Phase 08)."
+        ),
+    )
+    parser.add_argument(
+        "--no-vlm",
+        action="store_true",
+        default=False,
+        help="Disable VLM diagram captioning (default: enabled). Use for consulting books to conserve API rate limit.",
+    )
+    parser.add_argument(
+        "--author",
+        default="",
+        help="Book author(s) for metadata (default: empty). Example: 'Ethan Rasiel'",
+    )
+    return parser
+
+
+def main():
+    args = create_parser().parse_args()
 
     # Collect PDF files
     pdf_files = []
@@ -67,8 +88,6 @@ def main():
 
     logger.info(f"Found {len(pdf_files)} PDF(s) to ingest")
 
-    from src.ingestion.pipeline import run_ingestion_pipeline
-
     success_count = 0
     for pdf in pdf_files:
         logger.info(f"\n{'=' * 60}")
@@ -81,6 +100,9 @@ def main():
                 book_title=args.book_title or pdf.stem,
                 replace_existing=args.replace,
                 use_contextual=args.contextual,
+                source_domain=args.source_domain,
+                use_vlm=not args.no_vlm,
+                author=args.author,
             )
             if result.get("skipped"):
                 logger.info(f"SKIPPED: {pdf} — already in Qdrant")

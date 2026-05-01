@@ -71,7 +71,7 @@ def create_collection(client: QdrantClient, collection_name: str | None = None):
     # Create payload indices for filtering (required by Qdrant Cloud)
     from qdrant_client.models import PayloadSchemaType
 
-    for field in ["book_title", "chapter", "content_type"]:
+    for field in ["book_title", "chapter", "content_type", "source_domain"]:
         client.create_payload_index(
             collection_name=name,
             field_name=field,
@@ -102,7 +102,12 @@ def compute_sparse_vector(text: str) -> SparseVector:
 
 
 def upload_batch(client: QdrantClient, chunks: list[dict], collection_name: str | None = None):
-    """Upload one batch of embedded chunks to Qdrant (dense + sparse vectors)."""
+    """Upload one batch of embedded chunks to Qdrant (dense + sparse vectors).
+
+    Each chunk["metadata"] dict is spread into the Qdrant point payload.
+    source_domain must be present in chunk["metadata"] for domain tagging (RETR-02).
+    Phase 07 pipeline.py stamps source_domain onto every chunk before calling upload_batch.
+    """
     name = collection_name or settings.qdrant_collection_name
     points = [
         PointStruct(

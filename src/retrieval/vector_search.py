@@ -1,8 +1,11 @@
 import logging
 
 from qdrant_client.models import (
+    FieldCondition,
+    Filter,
     Fusion,
     FusionQuery,
+    MatchValue,
     NearestQuery,
     Prefetch,
     SparseVector,
@@ -21,6 +24,7 @@ def hybrid_search(
     top_k: int = 20,
     collection_name: str | None = None,
     book_filter: str | None = None,
+    domain_filter: str | None = None,
 ) -> list[dict]:
     """
     Hybrid search combining dense vector similarity and sparse BM25 on Qdrant.
@@ -32,12 +36,21 @@ def hybrid_search(
         top_k: Number of results to return (default 20 for reranker input)
         collection_name: Optional override for collection name
         book_filter: Optional book_title filter
+        domain_filter: Optional domain tag filter ("accounting" or "consulting").
+            When None (default), returns results from all domains.
+            SAFETY: Do not pass non-None until RETR-02 backfill is verified 100% complete.
     Returns: list of dicts with 'text', 'metadata', 'score'
     """
     client = get_qdrant_client()
     name = collection_name or settings.qdrant_collection_name
 
     sparse_vec = compute_sparse_vector(query_text)
+
+    payload_filter = None
+    if domain_filter:
+        payload_filter = Filter(
+            must=[FieldCondition(key="source_domain", match=MatchValue(value=domain_filter))]
+        )
 
     # Build prefetch for dense and sparse, then fuse with RRF
     results = client.query_points(
@@ -47,6 +60,7 @@ def hybrid_search(
                 query=NearestQuery(nearest=query_embedding),
                 using="dense",
                 limit=top_k,
+                filter=payload_filter,
             ),
             Prefetch(
                 query=NearestQuery(
@@ -57,6 +71,7 @@ def hybrid_search(
                 ),
                 using="sparse",
                 limit=top_k,
+                filter=payload_filter,
             ),
         ],
         query=FusionQuery(fusion=Fusion.RRF),
@@ -78,6 +93,7 @@ def hybrid_search(
                     "content_type": payload.get("content_type", ""),
                     "page_start": payload.get("page_start", 0),
                     "page_end": payload.get("page_end", 0),
+                    "source_domain": payload.get("source_domain", "accounting"),
                 },
             }
         )

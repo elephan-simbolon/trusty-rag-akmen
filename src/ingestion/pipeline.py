@@ -35,8 +35,11 @@ def run_ingestion_pipeline(
     checkpoint_dir: str = "data/checkpoints",
     replace_existing: bool = False,
     use_contextual: bool = False,
+    source_domain: str = "accounting",
+    use_vlm: bool = True,
+    author: str = "",
 ) -> dict:
-    """End-to-end ingestion: PDF -> parse -> chunk -> embed+upload to Qdrant."""
+    """Run 9-step ingestion: PDF → parse → chunk → embed → upload to Qdrant."""
     pdf_stem = Path(pdf_path).stem
     if not book_title:
         book_title = pdf_stem
@@ -82,9 +85,13 @@ def run_ingestion_pipeline(
     logger.info(f"Parsed with {parser_used}: {len(markdown_text)} chars")
 
     # Step 2: Diagram captioning
-    logger.info("[2/9] Extracting and captioning diagrams...")
-    diagram_captions = extract_and_caption_diagrams(output_dir)
-    logger.info(f"Captioned {len(diagram_captions)} diagrams")
+    if use_vlm:
+        logger.info("[2/9] Extracting and captioning diagrams...")
+        diagram_captions = extract_and_caption_diagrams(output_dir)
+        logger.info(f"Captioned {len(diagram_captions)} diagrams")
+    else:
+        diagram_captions = []
+        logger.info("[2/9] VLM captioning SKIPPED (use_vlm=False)")
 
     # Step 3: Split by headings
     logger.info("[3/9] Splitting by heading hierarchy...")
@@ -107,6 +114,8 @@ def run_ingestion_pipeline(
                 section_path=section_path,
                 content_type=content_type.value,
             )
+            enriched["metadata"]["source_domain"] = source_domain
+            enriched["metadata"]["author"] = author
             all_chunks.append(enriched)
 
     for dc in diagram_captions:
@@ -121,6 +130,8 @@ def run_ingestion_pipeline(
                         "content_type": "diagram",
                         "page_start": 0,
                         "page_end": 0,
+                        "source_domain": source_domain,
+                        "author": author,
                     },
                 }
             )
