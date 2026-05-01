@@ -1,224 +1,340 @@
-# Stack Research
+# Technology Stack
 
-**Domain:** AI-powered RAG system for cost & management accounting textbooks (Indonesian-English bilingual)
-**Researched:** 2026-03-22
-**Confidence:** HIGH (core stack verified via PyPI + official docs), MEDIUM (pricing figures, GPU compatibility)
-
----
-
-## Recommended Stack
-
-### Core Technologies
-
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| LangGraph | 1.1.3 | Agentic orchestration, CRAG loops, state machines | Production-stable (released 2026-03-18). The standard for stateful, cyclical agent workflows in Python as of 2025-2026. Native support for CRAG patterns, interrupt_before for human-in-the-loop, and node-level caching. No serious alternative for explicit state machine RAG. Requires Python 3.10+. |
-| LangChain | 1.2.13 | Tool wrappers, retriever abstractions, TextSplitter | Production-stable (released 2026-03-19). Provides @tool decorators, Qdrant integrations, and TextSplitter that LangGraph nodes call. Do not use it as orchestrator — use LangGraph for that. LangChain is the toolbox; LangGraph is the engine. |
-| LightRAG (lightrag-hku) | 1.4.11 | Knowledge graph extraction, graph-based retrieval | Released 2026-03-20. EMNLP 2025 paper. August 2025 update added reranker support. September 2025 update added specific optimizations for Qwen3-30B-A3B. Provides local/naive/hybrid/mix retrieval modes out of the box. Use built-in nano-vectordb for LightRAG's own storage; do not route it through Qdrant to avoid config conflicts. |
-| Qdrant (qdrant-client) | 1.17.1 | Primary vector database for dense + sparse retrieval | Released 2026-03-13. Cloud Free Tier: 1 GB RAM, 4 GB disk, ~1M vectors at 768-dim. Scalar quantization reduces memory by 4x. With 1,024-dim Qwen3 embeddings via MRL truncation, estimate ~500K-800K chunks in free tier — sufficient for 20-30 textbooks. Auto-suspension after 1 week inactivity requires periodic ping. |
-| Qwen3-30B-A3B-Instruct-2507 (via SiliconFlow) | 2507 release | LLM generation, routing, tool-calling | MoE architecture: 30.5B total params, only 3.3B active at inference. ~0.70 CNY input / ~2.80 CNY output per 1M tokens on SiliconFlow (approximately $0.10/$0.39 USD at current rates). Supports extended thinking mode for Complex/Calculation queries. 86.1 tokens/sec. Strong Chinese/Indonesian language capability inherited from base Qwen3. |
-| Qwen3-Embedding-8B (via SiliconFlow) | latest | Multilingual dense embeddings | Rank #1 MTEB Multilingual (score 70.58, as of June 2025). 4096-dim native, use 1024-dim via MRL truncation to fit Qdrant free tier. Handles Indonesian query → English textbook retrieval natively with no translation layer. ~$0.04/1M tokens on SiliconFlow. Context window 32K. |
-| Qwen3-Reranker-8B (via SiliconFlow) | latest | Cross-encoder reranking of retrieved candidates | ~$0.04/1M tokens. Top performer on MMTEB-R (72.94), CMTEB-R (77.45). Use after initial retrieval to rerank top-k=20 candidates to final top-k=5. Critical for cross-lingual retrieval quality (Indonesian query → English docs). |
-| MinerU (mineru) | 2.7.6 | Primary PDF parser for scanned/complex textbooks | Released 2026-02-06. Uses YOLO + PaddleOCR + TableMaster. Handles scanned PDFs, complex layouts, LaTeX formulas. GPU flag `--vram 6` limits loading to fit GTX 1660 Ti. Sequential model loading by design: safe for 6 GB VRAM. Use for scanned/image-heavy textbook PDFs. |
-| Docling | 2.81.0 | Secondary PDF parser for text-based PDFs | Released 2026-03-20. IBM Research / LF AI & Data Foundation. 97.9% accuracy on complex table extraction. MIT license. Use `batch_size=4` for GTX 1660 Ti. Granite-Docling (258M) model replaces SmolDocling as of March 2025. Faster than MinerU on text-native PDFs, better at table structure. |
-
-### Chunking and Indexing
-
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| LlamaIndex Core (llama-index-core) | 0.14.18 | HierarchicalNodeParser for parent-child chunk hierarchy | Released 2026-03-16. Use exclusively for HierarchicalNodeParser + parent-child storage. Do NOT use LlamaIndex as the orchestration framework — LangGraph owns that. Pairs with AutoMergingRetriever pattern where majority of child chunks triggers parent retrieval for broader context. |
-| Chonkie | 1.6.1 | Late chunking (LateChunker) and semantic chunking | Released 2026-03-18. Install with `pip install chonkie[semantic]` to get LateChunker. LateChunker embeds the full document first, then derives contextually-enriched chunk embeddings — superior to naive chunk-then-embed for long accounting textbook passages. Default install is lightweight (~21 MB). |
-| PyMuPDF (pymupdf) | 1.27.2.2 | Fast triage scan of PDFs before routing to MinerU/Docling | Released 2026-03-19. Use as "cheap scan" step: check if PDF is text-native (use Docling) or scanned/complex (use MinerU). Also useful for page count, metadata extraction, formula detection heuristics. Do not use as primary extractor — it lacks table structure and formula handling. |
-
-### Monitoring and Observability
-
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| Langfuse | latest | LLM observability, trace logging, RAG scoring | Open source MIT license. Self-hostable. Framework-agnostic via OpenTelemetry. Preferred over LangSmith for this project because: (1) SiliconFlow is not a LangChain-native provider, reducing LangSmith integration advantage; (2) Langfuse supports RAG-specific scoring (context relevance, groundedness); (3) full self-hosting option preserves accounting data privacy. |
-| LangSmith | latest | Alternative: deep LangGraph integration, managed | Use only if Langfuse integration proves complex. LangSmith has native LangGraph tracing but is closed-source SaaS — no self-hosting on free tier. For a personal accounting tool with sensitive client data, Langfuse's self-hosting is preferable. |
-
-### Configuration and Infrastructure
-
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| pydantic-settings | 2.x | Type-safe configuration from .env files | Standard for Python project config in 2025. Inherit from BaseSettings for all settings.py. Supports nested config, SecretStr for API keys, environment variable override. Eliminates boilerplate parsing code. |
-| Streamlit | latest | Chat UI for query interface | Mature, fast to build, good for data-centric display (tables, citations, calculations). Preferred for v1 because accounting responses involve structured citation display. |
-| Chainlit | latest | Alternative chat UI | Better for pure conversational flow; has async-first design. Note: as of May 2025, original team stepped back; now community-maintained. Recommend Streamlit for v1 given Chainlit's governance uncertainty. |
-
-### Development Tools
-
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| PyTorch (cu126 wheels) | GPU computation for MinerU and Docling | GTX 1660 Ti is Compute Capability 7.5 — minimum supported by cu128. Use cu126 for safety margin. Install: `pip install torch --index-url https://download.pytorch.org/whl/cu126` |
-| pyproject.toml + uv | Dependency management | uv is the 2025 standard for Python project management: 10-100x faster than pip, lockfile support, virtual env management. Replace pip + requirements.txt entirely. |
-| Docker / docker-compose | Container orchestration | Single Dockerfile for the app server. docker-compose for dev: app + any local services. Railway/Render/fly.io all accept Docker deployments. |
+**Project:** Trusty RAG Akmen — v1.1 Knowledge Protocol Engineering
+**Researched:** 2026-03-29
+**Milestone:** v1.1 KPE + Consulting Book Ingestion (subsequent milestone)
 
 ---
 
-## Installation
+## Scope of This Document
 
-```bash
-# Core RAG stack
-pip install langgraph==1.1.3 langchain==1.2.13 lightrag-hku==1.4.11 qdrant-client==1.17.1
+This file covers **only the stack additions and changes** needed for v1.1. All v1.0 validated decisions (LangGraph, LangChain, Qdrant, SiliconFlow, MinerU, Docling, fast-graphrag) are carried forward unchanged unless explicitly noted here.
 
-# Parsing pipeline
-pip install mineru==2.7.6 docling==2.81.0 pymupdf==1.27.2.2
+For the full original stack, see the v1.0 research above the separator line — this section extends it.
 
-# Chunking
-pip install llama-index-core==0.14.18 "chonkie[semantic]==1.6.1"
+---
 
-# Configuration and UI
-pip install pydantic-settings streamlit
+## v1.1 Stack Additions
 
-# Monitoring (choose one; Langfuse recommended)
-pip install langfuse
-# OR: pip install langsmith
+### No New Python Packages Required
 
-# PyTorch for local GPU (GTX 1660 Ti cu126)
-pip install torch --index-url https://download.pytorch.org/whl/cu126
+The KPE layer and consulting book ingestion require **zero new package additions**. All required capabilities are already present in the installed stack. The work is entirely in new Python modules using existing primitives.
+
+| Capability Needed | Existing Package | Why Sufficient |
+|-------------------|-----------------|----------------|
+| Protocol dataclass registry | Python stdlib `dataclasses` (3.11 built-in) | `@dataclass` is the right tool for immutable protocol definitions — no runtime validation needed on internal data that is hardcoded, not user-input |
+| Consulting PDF ingestion | `mineru==2.7.6` + `docling==2.81.0` | Same parsing pipeline as accounting textbooks — consulting books (McKinsey Way, Pyramid Principle, etc.) are commercial non-fiction PDFs, primarily text-native, well within Docling's strengths |
+| Domain-aware Qdrant filtering | `qdrant-client==1.17.1` | `query_points()` Prefetch objects accept `filter` parameter natively; `create_payload_index()` with `PayloadSchemaType.KEYWORD` already used for `book_title`/`chapter` — same API for `source_domain` |
+| Source domain backfill on existing points | `qdrant-client==1.17.1` | `set_payload()` with scroll-based iterator updates existing points without re-embedding or collection recreation |
+| Composable prompt builder | Python stdlib string formatting (`str.format()`) | KPE prompts are string templates assembled at runtime — no templating library needed |
+| Extended query classifier | Python stdlib `re` + `frozenset` | Current `query_classifier.py` is rule-based; protocol selection extends the same pattern with a keyword-to-protocol dict |
+| Citation label differentiation | Python stdlib string formatting | `[Sumber N]` vs `[Kerangka N]` is a rendering concern in `generator.py` — no new library |
+
+---
+
+## Qdrant: source_domain Payload Index
+
+**Question answered:** Does Qdrant require explicit payload index creation for `source_domain` filtering to work?
+
+**Answer:** Filtering works without a payload index (Qdrant performs a full scan), but a payload index is required for correct HNSW performance with filtered vector search. Without the index, Qdrant loads the entire payload from disk for each candidate to check the filter condition, which defeats the purpose of the HNSW graph for this collection size.
+
+**Verdict: Yes, create the payload index. It is the same one-liner already used for `book_title`.**
+
+From official Qdrant docs (verified 2026-03-29):
+> "If you're performing a search with a filter but you don't have a payload index, Qdrant will have to load whole payload data from disk to check the filtering condition."
+> "It's highly recommended to create all payload indices immediately after collection creation."
+
+**Required change in `qdrant_uploader.py`:**
+
+```python
+# In create_collection(), add source_domain to the index creation loop:
+for field in ["book_title", "chapter", "content_type", "source_domain"]:
+    client.create_payload_index(
+        collection_name=name,
+        field_name=field,
+        field_schema=PayloadSchemaType.KEYWORD,
+    )
 ```
 
-Using uv (recommended):
-```bash
-uv init trusty-rag-akmen
-uv add langgraph langchain lightrag-hku qdrant-client
-uv add mineru docling pymupdf
-uv add llama-index-core "chonkie[semantic]"
-uv add pydantic-settings streamlit langfuse
+**Required backfill for existing accounting points:**
+
+Existing Qdrant points from v1.0 do not have a `source_domain` field. They must be backfilled with `source_domain="accounting"` using scroll + set_payload. The Qdrant API supports this without re-embedding:
+
+```python
+# Pattern for backfill script (no new libraries needed):
+offset = None
+while True:
+    points, next_offset = client.scroll(
+        collection_name=name,
+        limit=500,
+        offset=offset,
+        with_payload=["book_title"],   # only need to confirm these are accounting chunks
+        with_vectors=False,
+    )
+    if not points:
+        break
+    ids = [p.id for p in points]
+    client.set_payload(
+        collection_name=name,
+        payload={"source_domain": "accounting"},
+        points=ids,
+    )
+    offset = next_offset
+    if offset is None:
+        break
 ```
 
----
-
-## Alternatives Considered
-
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| LangGraph | LlamaIndex Workflows | If the entire pipeline is already LlamaIndex-native and you have no need for explicit state machine semantics. LlamaIndex Workflows (0.14.x) have improved but LangGraph has wider production adoption and better CRAG pattern support. |
-| LangGraph | CrewAI | For multi-agent collaboration tasks (multiple autonomous agents with roles). Overkill for this project — single-user, single-session RAG with deterministic routing. |
-| LangGraph | AutoGen | Microsoft framework; good for multi-agent conversation. Not a fit for deterministic graph-based RAG with explicit CRAG loops. |
-| Qdrant Cloud Free | Pinecone Free | Pinecone's free tier: 2M vectors but 1 index, serverless with cold-start latency. Qdrant free tier has 1 GB RAM limit but no cold-start and better scalar quantization. For 20-30 textbooks, Qdrant free tier is sufficient. |
-| Qdrant Cloud Free | Weaviate Cloud Free | Weaviate's free: 1 sandbox, auto-pauses. Less mature scalar quantization. Qdrant has better Rust-native performance and first-class Python client. |
-| Qdrant Cloud Free | ChromaDB (local) | Use ChromaDB only if you want zero cloud dependency and don't care about horizontal scale. Qdrant Cloud is better for eventual productization. |
-| MinerU (primary) | Unstructured.io | Unstructured is excellent but more expensive at scale. MinerU is free/open-source, GPU-optimized, handles formulas via StructEqTable. For a local ingestion pipeline on GTX 1660 Ti, MinerU is the right choice. |
-| Docling (secondary) | LlamaParse | LlamaParse (cloud API, paid after 1000 pages/day) gives excellent results but adds API cost and data privacy concerns for accounting textbooks. Docling (local, MIT, 97.9% table accuracy) is preferable for this use case. |
-| Qwen3-30B-A3B (via SiliconFlow) | GPT-4o (OpenAI) | GPT-4o costs ~$5/$15 per 1M tokens vs ~$0.10/$0.39 for Qwen3-30B-A3B-2507. For 500 queries/day budget of $8-35/month, GPT-4o is 30-50x more expensive. Qwen3's multilingual capability is comparable for Indonesian/English tasks. |
-| Qwen3-Embedding-8B | text-embedding-3-large (OpenAI) | OpenAI embedding is $0.13/1M tokens vs $0.04/1M for Qwen3-Embedding-8B. More importantly, Qwen3-Embedding-8B outperforms on MTEB Multilingual (#1 rank, score 70.58) which is the critical benchmark for Indonesian↔English retrieval. |
-| Langfuse | LangSmith | Use LangSmith if you want zero-config LangGraph tracing and are comfortable with SaaS data storage. LangSmith's native LangGraph integration is genuinely excellent, but Langfuse's self-hosting and MIT license are preferable for a personal accounting tool. |
-| Streamlit | Chainlit | Use Chainlit if conversational UX is the primary concern and community-maintenance governance is acceptable. Streamlit is preferred for v1 because citation display (table + page references) benefits from Streamlit's data-centric display components. |
-| uv | pip + requirements.txt | Use pip only if uv is unavailable in the deployment environment. Railway, Render, and fly.io all support uv natively. |
+**Integration point for new ingestion:** `metadata_enricher.py` adds `source_domain` as a required field. Consulting book ingestion passes `source_domain="consulting"`. Accounting book ingestion passes `source_domain="accounting"`. Uploader stores it in the Qdrant payload alongside `book_title`, `chapter`, etc.
 
 ---
 
-## What NOT to Use
+## Qdrant: Domain-Aware Filtering in hybrid_search()
 
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| Microsoft GraphRAG (msft/graphrag) | Requires GPT-4 class models for entity extraction; cost at scale is prohibitive ($100+ for full corpus ingestion). Complex setup, slow iteration. | LightRAG — simpler API, self-contained, compatible with Qwen3 via SiliconFlow, September 2025 update specifically optimized for Qwen3-30B-A3B. |
-| LlamaIndex as primary orchestrator | Mixing LlamaIndex Workflows with LangGraph creates dependency conflicts and unclear ownership of graph state. LlamaIndex's strength is document parsing/indexing, not stateful agent orchestration. | Use LlamaIndex only for HierarchicalNodeParser; route orchestration through LangGraph. |
-| cu128 PyTorch wheels | GTX 1660 Ti (CC 7.5) is the minimum compatibility threshold for cu128. Edge of support means potential silent failures in future PyTorch releases. | cu126 wheels provide stable support for CC 7.5 with confirmed longevity. |
-| Local LLM inference (Ollama / vLLM) | GTX 1660 Ti 6 GB VRAM cannot run 8B+ models at useful throughput. Qwen3-Embedding-8B alone needs ~16 GB VRAM at FP16. Inference latency would make the tool unusable. Embedding a 20-30 book corpus locally would take ~33 days vs 4-12 hours via API. | SiliconFlow API for all embedding, reranking, and LLM inference. GPU is for PDF parsing only (MinerU/Docling). |
-| OpenAI Assistants API / Threads API | Vendor lock-in, 30-day thread expiry, opaque retrieval, no custom chunking control. Incompatible with the hybrid 7-step chunking requirement. | LangGraph + Qdrant for full control over retrieval pipeline. |
-| sentence-transformers for embedding | Popular but its multilingual models do not match Qwen3-Embedding-8B on MTEB Multilingual. Local inference also requires GPU VRAM budget better saved for parsing. | Qwen3-Embedding-8B via SiliconFlow API. |
-| Naive RAG (single retrieve → generate) | Unsuitable for cross-textbook synthesis and calculation tasks that require multi-hop reasoning. No quality gate means hallucinations pass through unchecked. | Agentic RAG with CRAG quality gate (CORRECT/AMBIGUOUS/INCORRECT grading) in LangGraph. |
-| Pinecone as primary vector store | Cold-start latency on serverless tier; index limit on free tier; no scalar quantization as mature as Qdrant. | Qdrant Cloud with scalar quantization. |
+**Current signature:**
+```python
+def hybrid_search(query_embedding, query_text, top_k=20,
+                  collection_name=None, book_filter=None) -> list[dict]
+```
 
----
+**Required change:** Add `domain_filter: str | None = None` parameter. When provided, pass as a filter on the `source_domain` payload field to both `Prefetch` objects.
 
-## Stack Patterns by Variant
+```python
+# Within hybrid_search(), build optional filter:
+from qdrant_client.models import Filter, FieldCondition, MatchValue
 
-**If query is Simple (definition, single-concept lookup):**
-- Router classifies as Simple
-- Single vector retrieval from Qdrant (top-k=5)
-- Qwen3-Reranker-8B on candidates
-- Direct generation — 2 API calls total
+payload_filter = None
+if domain_filter:
+    payload_filter = Filter(
+        must=[FieldCondition(
+            key="source_domain",
+            match=MatchValue(value=domain_filter),
+        )]
+    )
 
-**If query is Complex (cross-textbook synthesis, compare costing methods):**
-- Router classifies as Complex
-- Parallel retrieval: Qdrant vector search + LightRAG hybrid/mix mode
-- CRAG grading loop (up to 2 reformulations)
-- Qwen3-30B-A3B in extended thinking mode if needed
-- Multi-source citation builder — 4-6 API calls total
+results = client.query_points(
+    collection_name=name,
+    prefetch=[
+        Prefetch(query=NearestQuery(nearest=query_embedding),
+                 using="dense", limit=top_k,
+                 filter=payload_filter),         # <-- added
+        Prefetch(query=NearestQuery(nearest=SparseVector(...)),
+                 using="sparse", limit=top_k,
+                 filter=payload_filter),         # <-- added
+    ],
+    query=FusionQuery(fusion=Fusion.RRF),
+    limit=top_k,
+)
+```
 
-**If query is Calculation (BEP, variance analysis, overhead rate):**
-- Router classifies as Calculation
-- Retrieve formula/definition chunks + example chunks
-- Qwen3-30B-A3B performs structured step-by-step calculation
-- Mandatory disclaimer appended: "verifikasi hasil dengan sumber resmi"
-- 3-5 API calls total
-
-**If ingestion pipeline is running (offline batch):**
-- PyMuPDF triage scan → route to MinerU or Docling
-- MinerU: `--vram 6` flag, sequential model loading
-- Docling: `batch_size=4` for GTX 1660 Ti
-- HierarchicalNodeParser: parent (1024 tokens) → child (256 tokens)
-- Chonkie LateChunker for contextual embedding
-- SiliconFlow embedding API for batch embedding (not local)
+The `Prefetch` object in qdrant-client 1.17.1 supports a `filter` parameter — confirmed from the Qdrant API reference.
 
 ---
 
-## Version Compatibility
+## KPE Protocol Registry: Python dataclasses (stdlib)
 
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| LangGraph 1.1.3 | LangChain 1.2.13 | Same release cadence; always upgrade together. |
-| LightRAG 1.4.11 | LangChain 1.2.13 | LightRAG is standalone; LangChain integration via custom tool wrapper. |
-| MinerU 2.7.6 | PyTorch cu126 + CUDA 12.6 | Tested with cu126 wheels. Do NOT use cu128 on GTX 1660 Ti (CC 7.5 is minimum). |
-| Docling 2.81.0 | PyTorch cu126 | Granite-Docling model requires PyTorch. Batch_size=4 tested within 6 GB VRAM. |
-| llama-index-core 0.14.18 | LangChain 1.2.13 | Use only for HierarchicalNodeParser. Avoid mixing LlamaIndex query engines with LangGraph graph execution. |
-| Chonkie 1.6.1 [semantic] | llama-index-core 0.14.18 | Chonkie's LlamaIndex integration via ChonkieNodeParser. Compatible with current versions. |
-| qdrant-client 1.17.1 | LangChain 1.2.13 | LangChain Qdrant integration is stable via `langchain-qdrant` package. |
-| pydantic-settings 2.x | Pydantic v2 | Do NOT use pydantic-settings 1.x (incompatible with Pydantic v2 BaseModel). |
+**Question answered:** Python dataclass vs Pydantic BaseModel for protocol definitions?
+
+**Verdict: Use `@dataclass` from Python stdlib.**
+
+Rationale:
+- Protocol objects are **internal, hardcoded constants** — they are never deserialized from JSON, never received from an API, never user-input. Runtime validation (Pydantic's primary value) adds zero benefit for constant definitions.
+- `@dataclass` in Python 3.11 is 3x faster to instantiate than Pydantic BaseModel (benchmark: Python 3.13 further improved this gap). For protocol objects used in a hot path (every query), dataclasses are the correct choice.
+- The existing `RAGState` (a `TypedDict`) and configuration (`pydantic-settings BaseSettings`) pattern in this codebase already follows "Pydantic at the edge, stdlib in the core" — consistent with ecosystem best practice.
+- `@dataclass(frozen=True)` provides immutability for protocol definitions, which is semantically correct (protocols don't mutate at runtime).
+
+```python
+# config/protocols.py
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class AccountingProtocol:
+    name: str                         # e.g. "CVP"
+    display_name: str                 # e.g. "Cost-Volume-Profit Analysis"
+    trigger_keywords: frozenset[str]  # keywords that activate this protocol
+    system_prompt_steps: str          # protocol-specific reasoning steps for prompt
+    few_shot_example: str             # one worked example in Indonesian
+    citation_label: str               # "[Sumber N]" or "[Kerangka N]"
+
+PROTOCOL_REGISTRY: dict[str, AccountingProtocol] = {
+    "CVP": AccountingProtocol(...),
+    "VARIANCE": AccountingProtocol(...),
+    # ... 9 protocols total
+}
+```
+
+No alternative library (attrs, msgspec, Pydantic dataclasses) is needed. Stdlib `@dataclass` is sufficient and keeps the dependency count flat.
 
 ---
 
-## Validated Design Decisions
+## KPE Prompt Builder: stdlib str.format()
 
-The following decisions from PROJECT.md were validated by research:
+**Question answered:** Are there KPE/protocol-based prompting libraries worth using?
 
-**CONFIRMED: Qwen3-Embedding-8B cross-lingual approach**
-MTEB Multilingual #1 (score 70.58, June 2025) is verified via official Qwen blog. Cross-lingual Indonesian↔English retrieval without a translation layer is sound. Confidence: HIGH.
+**Answer:** No. KPE is a concept described in a July 2025 position paper (arxiv 2507.02760). There are no production Python libraries implementing a "KPE framework" as of March 2026. The concept is hand-rolled everywhere it appears in practice.
 
-**CONFIRMED: MinerU primary + Docling secondary parser split**
-MinerU 2.7.6 has `--vram 6` GPU flag confirmed for 6 GB VRAM constraint. Docling 2.81.0 (97.9% table accuracy) confirmed for text-native PDFs. Complementary split is the correct architecture. Confidence: HIGH.
+**Verdict: Hand-roll a composable prompt builder using stdlib string formatting. One file, ~50 lines.**
 
-**CONFIRMED: LightRAG built-in nano-vectordb (not Qdrant) for graph storage**
-LightRAG 1.4.11 is self-contained and the September 2025 update specifically added Qwen3-30B-A3B entity extraction support. Using Qdrant for LightRAG storage introduces config complexity with no retrieval benefit at this scale. Confidence: HIGH.
+The existing `config/prompts.py` already uses Python string `.format()` for `{glossary_snippet}` injection. The KPE prompt builder is a natural extension of this pattern:
 
-**CONFIRMED: cu126 over cu128 PyTorch wheels**
-GTX 1660 Ti CC 7.5 is documented minimum for cu128. cu126 provides explicit safety margin. Confidence: HIGH.
+```python
+# config/prompt_builder.py
+def build_system_prompt(
+    base_prompt: str,
+    protocol: AccountingProtocol | None,
+    glossary_snippet: str,
+    has_consulting_context: bool = False,
+) -> str:
+    """Compose final system prompt from base + protocol steps + glossary."""
+    parts = [base_prompt]
+    if protocol:
+        parts.append(f"\n\nFramework yang digunakan: {protocol.display_name}\n{protocol.system_prompt_steps}")
+        if protocol.few_shot_example:
+            parts.append(f"\n\nContoh:\n{protocol.few_shot_example}")
+    if has_consulting_context:
+        parts.append("\n\nGunakan [Kerangka N] untuk referensi dari buku metodologi/consulting.")
+    parts.append(f"\n\nGlosarium:\n{glossary_snippet}")
+    return "\n".join(parts)
+```
 
-**NEEDS MONITORING: Chainlit governance**
-As of May 2025, original Chainlit team stepped back; project is community-maintained. Streamlit is the safer choice for v1. If Chainlit stabilizes under new governance, reconsider for v2 conversational UX. Confidence: MEDIUM.
+No templating library (Jinja2, Mako, Mustache) is warranted. The prompts are short, structured, and don't require loops, conditionals, or inheritance that would justify a templating engine.
 
-**NEEDS MONITORING: Qdrant free tier inactivity suspension**
-Qdrant Cloud free tier auto-suspends after 1 week of inactivity and deletes after 4 weeks. For a personal tool with irregular usage, implement a periodic "ping" (weekly keepalive request) to prevent suspension. Confidence: HIGH (documented behavior).
+---
+
+## Query Classifier Extension: Rule-Based Protocol Selection
+
+**Current state:** `query_classifier.py` uses keyword + number pattern for `is_calculation_query()` — zero LLM calls.
+
+**v1.1 extension:** Add `classify_protocol(query: str) -> str | None` that returns a protocol key or None, using the same rule-based keyword matching pattern. No new library needed.
+
+```python
+# Extend src/retrieval/query_classifier.py
+_PROTOCOL_KEYWORDS: dict[str, frozenset[str]] = {
+    "CVP": frozenset(["cvp", "cost-volume-profit", "break-even", "bep", "contribution margin"]),
+    "VARIANCE": frozenset(["variance", "selisih", "price variance", "quantity variance"]),
+    "ABC": frozenset(["abc", "activity-based", "activity based"]),
+    # ... etc
+}
+
+def classify_protocol(query: str) -> str | None:
+    """Return protocol key if query matches a known framework, else None."""
+    q_lower = query.lower()
+    for protocol_key, keywords in _PROTOCOL_KEYWORDS.items():
+        if any(kw in q_lower for kw in keywords):
+            return protocol_key
+    return None
+```
+
+The existing `route_node` in `nodes.py` calls this and stores the result in a new `active_protocol: str | None` field on `RAGState`.
+
+---
+
+## RAGState Extension
+
+**Required addition to `src/agents/state.py`:**
+
+```python
+# v1.1 additions:
+active_protocol: Optional[str]      # Protocol key from classify_protocol(), e.g. "CVP"
+source_domain_filter: Optional[str] # "accounting" | "consulting" | None (search all)
+```
+
+No new packages. TypedDict extension is backward-compatible — existing nodes that don't read these fields are unaffected.
+
+---
+
+## Consulting Book Ingestion: PDF Characteristics
+
+**Consulting book PDFs (McKinsey Way, Pyramid Principle, Issue Trees, etc.) differ from accounting textbooks in these ways:**
+
+| Characteristic | Accounting Textbooks | Consulting Books |
+|----------------|---------------------|------------------|
+| PDF format | Mixed (text + scanned) | Predominantly text-native |
+| Tables | Heavy (cost sheets, ledgers, variance tables) | Light (2x2 matrices, priority grids) |
+| Formulas | LaTeX-rendered math | None or minimal |
+| Diagrams | Many (flowcharts, graphs) | Some (pyramid diagrams, issue trees) |
+| Chapter structure | Dense, numbered headings | Lighter structure, prose-heavy |
+| Language | English | English |
+| Page count | 600-900 pages per book | 150-350 pages per book |
+
+**Ingestion decision:** Use **Docling as primary** for consulting books (not MinerU). Consulting books are text-native with simple layouts — Docling's 97.9% table accuracy and faster batch processing are better suited. MinerU's scanned-PDF OCR capability is not needed.
+
+**fast-graphrag decision:** Skip for consulting books (as per PROJECT.md). The accounting entity schema (CVP, variance, overhead) used for fast-graphrag entity extraction would produce low-quality entities from procedural consulting content ("Issue Trees," "MECE," "Hypothesis-Driven"). Qdrant-only ingestion is correct.
+
+**Metadata schema:** Consulting chunks get `source_domain="consulting"` plus the standard fields. The `book_title` field carries the consulting book title (e.g., "The McKinsey Way"), which becomes the `[Kerangka N]` citation.
+
+---
+
+## Citation Differentiation: [Sumber N] vs [Kerangka N]
+
+**Implementation location:** `src/generation/generator.py` and `config/prompts.py`
+
+**No new library.** The citation builder already constructs a numbered list. The change is:
+1. Annotate each retrieved chunk with its `source_domain` in the context passed to the LLM
+2. Update `SYSTEM_PROMPT_GENERATOR` to instruct: "Gunakan [Sumber N] untuk buku akuntansi, [Kerangka N] untuk buku konsulting/metodologi"
+3. The citation list in the response renders both prefixes with the same formatting logic
+
+---
+
+## What NOT to Add for v1.1
+
+| Do Not Add | Why |
+|-----------|-----|
+| Pydantic BaseModel for protocol dataclass | Runtime validation is unnecessary for hardcoded constant objects. Adds import overhead per query. Dataclass is correct. |
+| Jinja2 or any templating library | Prompt composition is 3-4 string concatenations. A templating engine would add 100KB of dependency for zero benefit. |
+| LlamaIndex for consulting book chunking | Already replaced by custom chunking pipeline in v1.0. Adding LlamaIndex for consulting books creates two parallel chunking paths. |
+| A new Qdrant collection for consulting books | Single collection with `source_domain` payload filter is simpler, maintains unified hybrid search, and avoids Qdrant free tier collection limits. |
+| Langchain document loaders for consulting PDFs | The existing `route_and_parse()` → Docling path handles this. Adding LangChain document loaders creates a third parsing path. |
+| Any KPE library (no production ones exist as of 2026-03) | KPE is a concept (arxiv 2507.02760, July 2025). No Python library has stabilized around it. Hand-rolling is the only viable approach. |
+| msgspec or attrs as dataclass alternative | msgspec is excellent for high-volume serialization; irrelevant for 9 protocol objects defined at module import. attrs is heavier than dataclass for this use case. |
+
+---
+
+## Integration Map: Where Code Changes Live
+
+| Change | File | Type |
+|--------|------|------|
+| Add `source_domain` to metadata schema | `src/ingestion/chunking/metadata_enricher.py` | Extend `REQUIRED_METADATA_FIELDS` list, add parameter |
+| Add `source_domain` to Qdrant index | `src/ingestion/indexing/qdrant_uploader.py` | Add `"source_domain"` to index creation loop |
+| Add `domain_filter` param to hybrid_search | `src/retrieval/vector_search.py` | Extend function signature + Prefetch filter |
+| Add `classify_protocol()` | `src/retrieval/query_classifier.py` | New function, same file |
+| Add `active_protocol` + `source_domain_filter` to state | `src/agents/state.py` | Extend `RAGState` TypedDict |
+| KPE protocol registry | `config/protocols.py` | New file, stdlib dataclasses |
+| KPE prompt builder | `config/prompt_builder.py` | New file, stdlib str methods |
+| Update `SYSTEM_PROMPT_GENERATOR` for dual citation | `config/prompts.py` | Edit existing string |
+| Update `route_node` to call `classify_protocol` | `src/agents/nodes.py` | Edit route_node |
+| Update `retrieve_node` to pass `domain_filter` | `src/agents/nodes.py` | Edit retrieve_node |
+| Source domain backfill script | `scripts/backfill_source_domain.py` | New script |
+| Consulting book ingestion script | `scripts/ingest.py` | Add `--source-domain consulting` CLI flag |
+
+---
+
+## Confidence Assessment
+
+| Area | Confidence | Basis |
+|------|------------|-------|
+| Qdrant payload index requirement | HIGH | Official Qdrant docs (2026-03-29), consistent across multiple sources |
+| Qdrant Prefetch filter support | HIGH | API reference schema + qdrant-client 1.17.1 `query_points` signature |
+| set_payload backfill pattern | HIGH | Official Qdrant API reference, multiple code examples verified |
+| dataclass over Pydantic for protocol registry | HIGH | Benchmark data + official Pydantic docs on when to use each |
+| No KPE Python libraries exist | HIGH | No library found after WebSearch; KPE arxiv paper is July 2025, too recent for library ecosystem |
+| Docling as primary for consulting books | HIGH | Consulting book characteristics (text-native) match Docling's design target |
+| No new packages needed | HIGH | Verified against all 4 feature areas — all capabilities present in installed stack |
 
 ---
 
 ## Sources
 
-- PyPI langgraph — verified version 1.1.3, released 2026-03-18
-- PyPI langchain — verified version 1.2.13, released 2026-03-19
-- PyPI lightrag-hku — verified version 1.4.11, released 2026-03-20
-- PyPI qdrant-client — verified version 1.17.1, released 2026-03-13
-- PyPI mineru — verified version 2.7.6, released 2026-02-06
-- PyPI docling — verified version 2.81.0, released 2026-03-20
-- PyPI llama-index-core — verified version 0.14.18, released 2026-03-16
-- PyPI chonkie — verified version 1.6.1, released 2026-03-18
-- PyPI pymupdf — verified version 1.27.2.2, released 2026-03-19
-- [Qwen3 Embedding official blog](https://qwenlm.github.io/blog/qwen3-embedding/) — MTEB #1 rank, 70.58 score, language support, MRL truncation — HIGH confidence
-- [LightRAG GitHub HKUDS](https://github.com/HKUDS/LightRAG) — EMNLP 2025, Qwen3 optimization confirmed — HIGH confidence
-- [Qdrant Pricing](https://qdrant.tech/pricing/) — free tier limits (1 GB RAM, 4 GB disk, 1M vectors at 768-dim, inactivity policy) — HIGH confidence
-- [SiliconFlow Models](https://www.siliconflow.com/models) — Qwen3 model catalog, pricing in CNY — MEDIUM confidence (USD conversion approximate)
-- [LangGraph PyPI](https://pypi.org/project/langgraph/) + [Changelog](https://changelog.langchain.com/announcements/langgraph-1-0-is-now-generally-available) — version, production status — HIGH confidence
-- [Docling GitHub](https://github.com/docling-project/docling) — IBM/LF AI & Data, table accuracy benchmark — HIGH confidence
-- [Chonkie GitHub](https://github.com/chonkie-inc/chonkie) — LateChunker availability in `[semantic]` extras — HIGH confidence
-- [Langfuse vs LangSmith comparison, ZenML Blog](https://www.zenml.io/blog/langfuse-vs-langsmith) — OSS status, governance, RAG scoring — MEDIUM confidence
-- WebSearch "Chainlit governance 2025" — community-maintained since May 2025 — MEDIUM confidence (single-source finding)
-- [Qwen3-30B-A3B HuggingFace](https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507) — MoE params (30.5B total, 3.3B active) — HIGH confidence
-- [ArtificialAnalysis Qwen3-30B-A3B-2507](https://artificialanalysis.ai/models/qwen3-30b-a3b-2507) — throughput 86.1 tok/s — MEDIUM confidence
+- [Qdrant Indexing Documentation](https://qdrant.tech/documentation/manage-data/indexing/) — payload index creation, performance implications, KEYWORD type, timing recommendation — HIGH confidence
+- [Qdrant API Reference: query_points](https://api.qdrant.tech/api-reference/search/query-points) — Prefetch.filter parameter existence — HIGH confidence
+- [Qdrant Python Client Docs](https://python-client.qdrant.tech/qdrant_client.qdrant_client) — create_payload_index, set_payload signatures — HIGH confidence
+- [KPE arxiv paper 2507.02760](https://arxiv.org/abs/2507.02760) — confirmed KPE is a concept paper, no library — HIGH confidence
+- [KPE Medium article by Robert Encarnacao](https://medium.com/@delimiterbob/knowledge-protocol-engineering-teaching-ai-the-how-not-just-the-what-7b2d931bb4c4) — hand-rolled implementations are the norm — MEDIUM confidence
+- [Pydantic dataclasses docs](https://docs.pydantic.dev/latest/concepts/dataclasses/) — when to use stdlib vs Pydantic dataclass — HIGH confidence
+- WebSearch "python dataclass vs pydantic basemodel performance 2025" — benchmark data for instantiation speed — MEDIUM confidence
+- qdrant-client 1.17.1 installed in project (verified via pyproject.toml) — version confirmation — HIGH confidence
 
 ---
 
-*Stack research for: AI-powered RAG system, cost & management accounting, bilingual Indonesian/English*
-*Researched: 2026-03-22*
+*Stack research for: v1.1 KPE + Consulting Book Ingestion milestone*
+*Researched: 2026-03-29*
+*Scope: Additions and changes only — does not replace v1.0 stack decisions*

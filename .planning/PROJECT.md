@@ -135,13 +135,49 @@ trusty-rag-akmen/
 | cu126 PyTorch wheels, bukan cu128 | GTX 1660 Ti CC 7.5 adalah batas minimum cu128 — cu126 memberikan safety margin untuk longevity | — Pending |
 
 ---
-## Current State
 
-Milestone v1.0 complete dan diarsipkan — 2026-03-28.
+## Current Milestone: v1.1 Knowledge Protocol Engineering
 
-8 fase dieksekusi dalam 6 hari (2026-03-22 hingga 2026-03-28): Foundation, Knowledge Graph, Agentic Orchestration, Scale & Observability, Ingestion Polish (04.1), Polish, Cleanup & Hardening (05.1), Session & Observability Fixes (05.2). 40/40 requirements terpenuhi (audit: v1.0-MILESTONE-AUDIT-FINAL.md, status PASS). ROADMAP dan REQUIREMENTS diarsipkan ke `.planning/milestones/v1.0-*`. Git tag v1.0 diterapkan.
+**Goal:** Mengubah RAG dari mesin pencari jawaban textbook menjadi konsultan akuntansi manajemen yang merespons dengan structured problem solving menggunakan domain-specific reasoning frameworks (KPE).
 
-Siap untuk milestone berikutnya. Gunakan `/gsd:new-milestone` untuk mendefinisikan scope v1.1.
+**Target features:**
+- Protocol registry — 9 management accounting frameworks (CVP, Variance, ABC, Transfer Pricing, Relevant Costing, Product Profitability, Budgeting, Cost Classification, General) sebagai reasoning templates
+- Enhanced query classifier — 4-way routing (Simple/Medium/Complex/Calculation) + protocol selection
+- Composable prompt builder — consultant-style system prompts dengan protocol-specific steps & few-shot examples
+- Consulting book ingestion — 21 buku consulting/methodology di-ingest ke Qdrant dengan `source_domain: "consulting"` (skip fast-graphrag — content mismatch, entity types akuntansi tidak sesuai untuk procedural knowledge)
+- Domain-aware retrieval — hybrid_search dengan domain_filter parameter
+- Citation differentiation — [Sumber N] untuk textbook vs [Kerangka N] untuk methodology
+- Backfill existing Qdrant points dengan source_domain="accounting"
+
+**Key decisions:**
+- Consulting books → Qdrant only, skip fast-graphrag (procedural knowledge tidak cocok untuk entity extraction dengan accounting entity types)
+- KPE protocols hardcode framework steps di system prompts (zero LLM calls untuk protocol selection)
+- Ingestion aktual 21 buku masuk scope (bukan hanya infrastruktur)
 
 ---
-*Last updated: 2026-03-28 after v1.0 milestone archive*
+
+## Current State
+
+Milestone v1.1 in progress — Phase 07 complete (2026-03-30).
+
+Phase 06 (KPE Core) complete: protocol registry, composable prompt builder, extended classifier, citation label infrastructure. Phase 07 (Domain Retrieval Infrastructure) complete: source_domain payload index di Qdrant, backfill script (9845/9845 points ter-tag), domain_filter parameter di hybrid_search, --source-domain CLI flag di ingest pipeline, dan [Sumber N]/[Kerangka N] citation label differentiation. Next: Phase 08 (Consulting Book Ingestion) — 21 consulting books ke Qdrant dengan source_domain="consulting".
+
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd:transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd:complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
+---
+*Last updated: 2026-03-30 after Phase 07 Domain Retrieval Infrastructure complete*
