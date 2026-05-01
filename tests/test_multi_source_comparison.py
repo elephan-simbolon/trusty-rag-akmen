@@ -177,8 +177,8 @@ def test_synthesis_prompt_selected_for_multi_source_comparison(mock_llm):
     messages = call_args[0][0] if call_args[0] else call_args[1]["messages"]
     system_msg = messages[0]["content"]
 
-    # SYSTEM_PROMPT_SYNTHESIS contains synthesis marker (not in SYSTEM_PROMPT_GENERATOR)
-    assert "textbook dan knowledge graph" in system_msg
+    # Phase 6: compose_system_prompt with has_graph_context=True includes _SYNTHESIS_BLOCK
+    assert "knowledge graph" in system_msg  # _SYNTHESIS_BLOCK contains "knowledge graph"
 
 
 @patch("src.generation.generator.generate")

@@ -1,11 +1,7 @@
 import logging
 
 from config.glossary import GLOSSARY
-from config.prompts import (
-    SYSTEM_PROMPT_GENERATOR,
-    SYSTEM_PROMPT_GENERATOR_CALCULATION,
-    SYSTEM_PROMPT_SYNTHESIS,
-)
+from config.prompts import compose_system_prompt
 from src.generation.citation_builder import build_citations
 from src.llm.client import generate
 from src.monitoring.langfuse_client import update_token_usage
@@ -14,18 +10,20 @@ logger = logging.getLogger(__name__)
 
 
 def _build_glossary_snippet(max_terms: int = 50) -> str:
-    """Build a compact glossary snippet for the system prompt."""
+    """Return first N glossary terms as newline-delimited 'en = id' string."""
     terms = list(GLOSSARY.items())[:max_terms]
     return "\n".join(f"- {en} = {id_}" for en, id_ in terms)
 
 
 def _build_context_block(docs: list[dict]) -> str:
-    """Build context block from retrieved documents for the LLM."""
+    """Build numbered context block; consulting → [Kerangka N], accounting → [Sumber N] (RETR-03)."""
     blocks = []
     for i, doc in enumerate(docs, 1):
         meta = doc.get("metadata", {})
+        domain = meta.get("source_domain", "accounting")
+        label = "Kerangka" if domain == "consulting" else "Sumber"
         source = f"{meta.get('book_title', 'Unknown')}, {meta.get('chapter', '')}, hal. {meta.get('page_start', '?')}"
-        blocks.append(f"[Sumber {i}: {source}]\n{doc['text']}")
+        blocks.append(f"[{label} {i}: {source}]\n{doc['text']}")
     return "\n\n---\n\n".join(blocks)
 
 
@@ -35,33 +33,19 @@ def generate_response(
     graph_context: str = "",
     query_type: str = "Simple",
     conversation_history: list[dict] | None = None,
+    protocol_key: str = "general",  # Phase 6: protocol-driven prompt composition
 ) -> dict:
-    """
-    Generate a bilingual response (Indonesian prose + English technical terms)
-    with citations from retrieved context.
-
-    Phase 3: query_type selects the prompt variant:
-    - "Calculation" → SYSTEM_PROMPT_GENERATOR_CALCULATION (step-by-step + disclaimer)
-    - Other + graph_context → SYSTEM_PROMPT_SYNTHESIS (multi-source attribution)
-    - Other + no graph_context → SYSTEM_PROMPT_GENERATOR (standard)
-
-    conversation_history injects last 5 turns (10 messages) for follow-up support (UI-02).
-    Backward compatible: callers not providing new params get previous behavior.
-
-    Returns: dict with 'response' (str) and 'citations' (list[dict]).
-    """
+    """Return {'response': str, 'citations': list} from retrieved docs using modular prompt composition."""
     glossary_snippet = _build_glossary_snippet()
     context_block = _build_context_block(context_docs)
 
-    # Phase 3: Select prompt variant by query_type
-    if query_type == "Calculation":
-        system_prompt = SYSTEM_PROMPT_GENERATOR_CALCULATION.format(
-            glossary_snippet=glossary_snippet
-        )
-    elif graph_context:
-        system_prompt = SYSTEM_PROMPT_SYNTHESIS.format(glossary_snippet=glossary_snippet)
-    else:
-        system_prompt = SYSTEM_PROMPT_GENERATOR.format(glossary_snippet=glossary_snippet)
+    # Phase 6: Modular prompt composition via KPE protocol registry (PROT-04)
+    system_prompt = compose_system_prompt(
+        protocol_key=protocol_key,
+        glossary_snippet=glossary_snippet,
+        is_calculation=(query_type == "Calculation"),
+        has_graph_context=bool(graph_context),
+    )
 
     # Phase 3: Conversation history — last 5 turns (10 messages max)
     history = (conversation_history or [])[-10:]

@@ -2,6 +2,22 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# ---------------------------------------------------------------------------
+# Collection guards for tests that require optional heavy dependencies
+# ---------------------------------------------------------------------------
+# fast_graphrag is an optional dependency used only in Phase 2 (GraphRAG ingestion).
+# If the module is not installed, skip collection of those test files entirely
+# rather than raising ImportError and aborting the entire test run.
+collect_ignore_glob = []
+
+try:
+    import fast_graphrag  # noqa: F401
+except ImportError:
+    collect_ignore_glob += [
+        "test_fastgraphrag_setup.py",
+        "test_graphrag_ingestion.py",
+    ]
+
 
 @pytest.fixture
 def sample_pdf_path(tmp_path):

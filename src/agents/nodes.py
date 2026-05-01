@@ -1,12 +1,19 @@
 import logging
 
+try:
+    from fast_graphrag import QueryParam as _QueryParam
+    _FAST_GRAPHRAG_AVAILABLE = True
+except ImportError:
+    _QueryParam = None
+    _FAST_GRAPHRAG_AVAILABLE = False
+
 from config.prompts import SYSTEM_PROMPT_REFORMULATOR
 from config.settings import settings
 from src.agents.state import RAGState
 from src.generation.generator import generate_response
 from src.llm.client import generate as llm_generate
 from src.retrieval.preprocessor import preprocess_query
-from src.retrieval.query_classifier import is_calculation_query
+from src.retrieval.query_classifier import is_calculation_query, select_protocol
 from src.retrieval.reranker import rerank_results
 from src.retrieval.vector_search import hybrid_search
 from src.services.graph_service import get_graphrag
@@ -15,12 +22,14 @@ logger = logging.getLogger(__name__)
 
 
 def route_node(state: RAGState) -> dict:
-    """Classify query type and reset CRAG state for this turn."""
+    """Classify query type and protocol; reset CRAG state for this turn."""
     query = state["query"]
+    protocol_key = select_protocol(query)
 
     if is_calculation_query(query):
         return {
             "query_type": "Calculation",
+            "protocol_key": protocol_key,
             "llm_call_count": 0,
             "crag_iterations": 0,
             "crag_grade": None,
@@ -28,6 +37,7 @@ def route_node(state: RAGState) -> dict:
 
     return {
         "query_type": "Simple",
+        "protocol_key": protocol_key,
         "llm_call_count": 0,
         "crag_iterations": 0,
         "crag_grade": None,
@@ -64,11 +74,7 @@ def retrieve_node(state: RAGState) -> dict:
 
 
 def graph_retrieve_node(state: RAGState) -> dict:
-    """Retrieve context from fast-graphrag knowledge graph.
-
-    Sync node — LangGraph runs it in a thread pool when called via ainvoke().
-    GraphRAG instance injected via graph_service singleton from FastAPI lifespan.
-    """
+    """Retrieve context from fast-graphrag knowledge graph via graph_service singleton."""
     if state.get("error"):
         return {}
 
@@ -77,12 +83,14 @@ def graph_retrieve_node(state: RAGState) -> dict:
         logger.warning("GraphRAG instance not available — skipping graph retrieval")
         return {"graph_docs": []}
 
+    if not _FAST_GRAPHRAG_AVAILABLE:
+        logger.warning("fast_graphrag not installed — skipping graph retrieval")
+        return {"graph_docs": []}
+
     query = state["query"]
 
     try:
-        from fast_graphrag import QueryParam
-
-        answer = grag.query(query, QueryParam(only_context=True))
+        answer = grag.query(query, _QueryParam(only_context=True))
         context = answer.context
 
         parts = []
@@ -182,6 +190,7 @@ def generate_node(state: RAGState) -> dict:
             graph_context=graph_context,
             query_type=query_type,
             conversation_history=history,
+            protocol_key=state.get("protocol_key", "general"),  # Phase 6: protocol-driven prompt
         )
         llm_count = state.get("llm_call_count", 0) + 1
         logger.info(
@@ -289,6 +298,7 @@ def generate_calc_node(state: RAGState) -> dict:
             context_docs=docs,
             graph_context=graph_context,
             query_type="Calculation",
+            protocol_key=state.get("protocol_key", "general"),  # Phase 6: protocol-driven prompt
         )
         llm_count = state.get("llm_call_count", 0) + 1
         logger.info(

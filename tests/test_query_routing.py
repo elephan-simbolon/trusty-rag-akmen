@@ -93,6 +93,10 @@ class TestRAGStateFields:
         "conversation_history",
     }
 
+    PHASE_6_FIELDS = {
+        "protocol_key",
+    }
+
     def test_phase1_fields_present(self):
         """All Phase 1 fields must be preserved."""
         annotations = RAGState.__annotations__
@@ -111,11 +115,20 @@ class TestRAGStateFields:
         for field in self.PHASE_3_FIELDS:
             assert field in annotations, f"Phase 3 field '{field}' missing from RAGState"
 
-    def test_total_field_count(self):
-        """RAGState should have exactly 14 fields (8 Phase 1 + 1 Phase 2 + 5 Phase 3)."""
+    def test_phase6_fields_present(self):
+        """All Phase 6 fields must be present (protocol_key for KPE routing)."""
         annotations = RAGState.__annotations__
-        assert len(annotations) == 14, (
-            f"Expected 14 fields, got {len(annotations)}. Fields: {sorted(annotations.keys())}"
+        for field in self.PHASE_6_FIELDS:
+            assert field in annotations, f"Phase 6 field '{field}' missing from RAGState"
+
+    def test_total_field_count(self):
+        """RAGState should have exactly 15 fields (8 Phase 1 + 1 Phase 2 + 5 Phase 3 + 1 Phase 6).
+
+        Phase 6 addition: protocol_key (KPE protocol routing).
+        """
+        annotations = RAGState.__annotations__
+        assert len(annotations) == 15, (
+            f"Expected 15 fields, got {len(annotations)}. Fields: {sorted(annotations.keys())}"
         )
 
     def test_conversation_history_uses_annotated_reducer(self):

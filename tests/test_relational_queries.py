@@ -183,7 +183,7 @@ def test_synthesis_prompt_used_when_graph_context_non_empty_for_relational_query
     messages = call_args[0][0] if call_args[0] else call_args[1]["messages"]
     system_msg = messages[0]["content"]
 
-    assert "textbook dan knowledge graph" in system_msg
+    assert "knowledge graph" in system_msg
     assert "relasional" in system_msg
     assert "hubungan konseptual" in system_msg
 

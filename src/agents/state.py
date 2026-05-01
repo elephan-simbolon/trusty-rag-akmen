@@ -26,3 +26,7 @@ class RAGState(TypedDict):
     crag_iterations: Optional[int]  # initialized to 0 in route_node, caps at 2
     llm_call_count: Optional[int]  # logged per query for budget verification
     conversation_history: Annotated[list, operator.add]  # accumulates across turns
+    # Phase 6 additions
+    protocol_key: Optional[str]  # "cvp"|"variance_analysis"|"abc"|"transfer_pricing"|
+                                  # "relevant_costing"|"product_profitability"|
+                                  # "budgeting"|"cost_classification"|"general"

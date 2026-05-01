@@ -46,11 +46,11 @@ def test_synthesis_uses_synthesis_prompt_when_graph_context_present(mock_generat
         context_docs=MOCK_VECTOR_DOCS,
         graph_context=MOCK_GRAPH_CONTEXT,
     )
-    # Verify the system prompt used is the synthesis one (contains "textbook dan knowledge graph")
+    # Verify the system prompt used is the synthesis one (Phase 6: _SYNTHESIS_BLOCK added when has_graph_context)
     call_args = mock_generate.call_args
     messages = call_args[0][0] if call_args[0] else call_args[1]["messages"]
     system_msg = messages[0]["content"]
-    assert "textbook dan knowledge graph" in system_msg
+    assert "knowledge graph" in system_msg  # _SYNTHESIS_BLOCK contains "knowledge graph"
 
 
 @patch("src.generation.generator.generate")

@@ -10,6 +10,8 @@ are NOT classified as Calculation — they are likely definitional questions.
 
 import re
 
+from config.protocols import PROTOCOL_REGISTRY
+
 _CALC_KEYWORDS = frozenset(
     [
         "hitung",
@@ -43,3 +45,55 @@ def is_calculation_query(query: str) -> bool:
     has_keyword = any(kw in q_lower for kw in _CALC_KEYWORDS)
     has_number = bool(_NUMBER_PATTERN.search(query))
     return has_keyword and has_number
+
+
+# Priority order: most-specific protocols first to prevent shadowing.
+# variance_analysis before budgeting: "varians anggaran" matches variance, not budgeting.
+# cost_classification before cvp: "biaya tetap/variabel" are broad terms caught here first.
+# cvp last (before general): BEP/titik impas are CVP-specific but appear in general questions.
+_PROTOCOL_PRIORITY = [
+    "variance_analysis",
+    "abc",
+    "transfer_pricing",
+    "relevant_costing",
+    "product_profitability",
+    "budgeting",
+    "cost_classification",
+    "cvp",
+    "general",
+]
+
+
+def select_protocol(query: str) -> str:
+    """Return protocol_key for query via rule-based keyword matching (PROT-02).
+
+    Iterates protocols in _PROTOCOL_PRIORITY order. Returns 'general' if no match.
+    Zero LLM calls — uses frozenset keyword matching with word-boundary guard
+    for short abbreviations (≤4 chars) to prevent false positives.
+
+    Examples:
+        "jelaskan break-even point"    → "cvp"
+        "hitung varians harga bahan"   → "variance_analysis"
+        "apa itu activity-based cost?" → "abc"
+        "bandingkan profitabilitas produk" → "product_profitability"
+        "apa itu biaya?"               → "general"
+        "kontrak ABC dengan vendor"    → not "abc" (word-boundary guard)
+    """
+    q_lower = query.lower()
+    # Pad with spaces for word-boundary matching on short abbreviations
+    q_padded = f" {q_lower} "
+
+    for key in _PROTOCOL_PRIORITY:
+        if key == "general":
+            return "general"
+        config = PROTOCOL_REGISTRY[key]
+        all_keywords = config.keywords_id | config.keywords_en
+        for kw in all_keywords:
+            if len(kw) <= 4:
+                # Short keywords require word-boundary: check padded string
+                if f" {kw} " in q_padded:
+                    return key
+            else:
+                if kw in q_lower:
+                    return key
+    return "general"
