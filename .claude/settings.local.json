@@ -27,7 +27,8 @@
       "WebFetch(domain:docs.ragas.io)",
       "WebFetch(domain:docs.siliconflow.cn)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:deepwiki.com)"
+      "WebFetch(domain:deepwiki.com)",
+      "Skill(gsd:verify-work)"
     ]
   }
 }

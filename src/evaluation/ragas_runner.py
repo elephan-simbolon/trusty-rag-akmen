@@ -41,8 +41,14 @@ def _save_partial(results: list[dict], path: Path) -> None:
         json.dump(results, f, ensure_ascii=False, indent=2)
 
 
-def _aggregate_metrics(results: list[dict]) -> dict:
-    """Hitung summary metrics dari per-query results."""
+def _aggregate_metrics(results: list[dict], ranking_metrics: dict | None = None) -> dict:
+    """Hitung summary metrics dari per-query results.
+
+    Args:
+        results: Per-query RAGAS results.
+        ranking_metrics: Optional dict dari compute_ranking_metrics() —
+            jika diset, ranking metrics di-merge ke dalam summary.
+    """
     metrics = ["context_precision", "context_recall", "answer_faithfulness", "answer_relevance"]
 
     # Overall averages (skip None values)
@@ -70,6 +76,10 @@ def _aggregate_metrics(results: list[dict]) -> dict:
         diff: {m: round(sum(vals) / len(vals), 4) if vals else None for m, vals in diff_data.items()}
         for diff, diff_data in per_difficulty.items()
     }
+
+    # Merge ranking metrics jika tersedia
+    if ranking_metrics:
+        overall.update(ranking_metrics)
 
     return overall
 
@@ -175,6 +185,7 @@ async def run_ragas_evaluation(
     inter_query_delay: float = 5.0,
     inter_judge_delay: float = 2.0,
     verbose: bool = False,
+    ranking_metrics: dict | None = None,
 ) -> dict:
     """Jalankan RAGAS evaluation untuk semua (atau batch) queries.
 
@@ -295,7 +306,7 @@ async def run_ragas_evaluation(
             await asyncio.sleep(inter_query_delay)
 
     # Aggregate
-    summary = _aggregate_metrics(results)
+    summary = _aggregate_metrics(results, ranking_metrics=ranking_metrics)
 
     output_data = {
         "run_at": datetime.now(timezone.utc).isoformat(),

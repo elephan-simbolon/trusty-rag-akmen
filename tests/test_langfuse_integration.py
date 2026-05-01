@@ -4,7 +4,7 @@ Tests cover:
 - get_langfuse_handler() returns CallbackHandler when langfuse_enabled=True
 - get_langfuse_handler() returns None when langfuse_enabled=False
 - get_langfuse_handler() returns None gracefully when LANGFUSE_PUBLIC_KEY is empty
-- update_token_usage() calls observation.update with correct usage_details keys
+- update_token_usage() calls update_current_generation with correct usage_details keys (v4)
 - Settings class has the required Langfuse configuration fields
 
 No live Langfuse connection required — all langfuse imports are mocked.
@@ -18,8 +18,9 @@ from unittest.mock import MagicMock, patch
 
 
 def test_handler_created():
-    """get_langfuse_handler() returns a CallbackHandler instance when langfuse_enabled=True
-    and a non-empty public key is present."""
+    """get_langfuse_handler() returns a CallbackHandler instance when langfuse_enabled=True."""
+    import importlib
+
     mock_handler_instance = MagicMock()
     mock_callback_cls = MagicMock(return_value=mock_handler_instance)
     mock_langfuse_langchain = MagicMock()
@@ -31,9 +32,12 @@ def test_handler_created():
     ):
         mock_settings.langfuse_enabled = True
         mock_settings.langfuse_public_key = "pk-lf-test-key"
+        mock_settings.langfuse_secret_key.get_secret_value.return_value = "sk-lf-test"
+        mock_settings.langfuse_base_url = "https://cloud.langfuse.com"
 
         from src.monitoring import langfuse_client
 
+        importlib.reload(langfuse_client)
         result = langfuse_client.get_langfuse_handler()
 
     assert result is mock_handler_instance
@@ -87,12 +91,8 @@ def test_handler_graceful_when_no_keys():
 
 
 def test_update_token_usage_keys():
-    """update_token_usage(input_tokens=100, output_tokens=50) calls obs.update with
-    usage_details containing 'input' and 'output' keys."""
-    mock_obs = MagicMock()
+    """update_token_usage() calls update_current_generation with input/output usage_details (Langfuse v4)."""
     mock_langfuse_client = MagicMock()
-    mock_langfuse_client.get_current_observation.return_value = mock_obs
-
     mock_langfuse_module = MagicMock()
     mock_langfuse_module.get_client.return_value = mock_langfuse_client
 
@@ -105,14 +105,9 @@ def test_update_token_usage_keys():
 
         langfuse_client.update_token_usage(input_tokens=100, output_tokens=50)
 
-    mock_obs.update.assert_called_once()
-    call_kwargs = mock_obs.update.call_args[1]
-    assert "usage_details" in call_kwargs
-    usage = call_kwargs["usage_details"]
-    assert "input" in usage
-    assert "output" in usage
-    assert usage["input"] == 100
-    assert usage["output"] == 50
+    mock_langfuse_client.update_current_generation.assert_called_once_with(
+        usage_details={"input": 100, "output": 50}
+    )
 
 
 # ---------------------------------------------------------------------------

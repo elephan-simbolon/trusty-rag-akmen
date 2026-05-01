@@ -21,6 +21,7 @@ dependencies = [
     "httpx",
     "langfuse>=4.0.1",
     "ragas>=0.2",
+    "ranx",
     "fast-graphrag",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",

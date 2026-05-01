@@ -9,6 +9,9 @@ Usage:
     python scripts/evaluate_retrieval.py -v          # verbose per-query output
     python scripts/evaluate_retrieval.py --generate-golden  # generate golden answers
     python scripts/evaluate_retrieval.py --ragas     # full RAGAS evaluation (4 metrics)
+    python scripts/evaluate_retrieval.py --generate-qrels  # generate qrels via LLM judge (sekali)
+    python scripts/evaluate_retrieval.py --ranking   # hitung NDCG/MRR/Recall@K dari qrels
+    python scripts/evaluate_retrieval.py --ragas --ranking  # gabung RAGAS + ranking metrics
 """
 
 import argparse
@@ -31,6 +34,8 @@ VALID_DIFFICULTIES = {"Simple", "Medium", "Complex", "Calculation"}
 GOLDEN_PATH = Path(__file__).parent.parent / "data" / "eval" / "golden_answers.json"
 DEFAULT_RAGAS_OUTPUT = Path(__file__).parent.parent / "data" / "eval" / "ragas_results.json"
 DEFAULT_PARTIAL_PATH = Path(__file__).parent.parent / "data" / "eval" / "ragas_results_partial.json"
+DEFAULT_QRELS_PATH = Path(__file__).parent.parent / "data" / "eval" / "qrels.json"
+DEFAULT_RANKING_OUTPUT = Path(__file__).parent.parent / "data" / "eval" / "ranking_results.json"
 
 
 # ---------------------------------------------------------------------------
@@ -335,6 +340,106 @@ def run_ragas(
 
 
 # ---------------------------------------------------------------------------
+# Ranking Metrics
+# ---------------------------------------------------------------------------
+
+
+def run_generate_qrels(
+    queries: list[dict],
+    batch_size: int | None = None,
+    verbose: bool = False,
+) -> None:
+    """Generate qrels via LLM judge dan simpan ke DEFAULT_QRELS_PATH."""
+    from src.agents.graph import build_phase3_graph  # noqa: PLC0415
+    from src.evaluation.qrels_generator import generate_qrels  # noqa: PLC0415
+
+    print("Building Phase 3 graph untuk qrels generation...")
+    graph = build_phase3_graph()
+    n = batch_size or len(queries)
+    print(f"Generating qrels untuk {n} queries via LLM judge...")
+    qrels = generate_qrels(
+        queries=queries,
+        graph=graph,
+        output_path=DEFAULT_QRELS_PATH,
+        batch_size=batch_size,
+        verbose=verbose,
+    )
+    ok = sum(1 for v in qrels.values() if v)
+    print(f"\nQrels: {ok}/{len(qrels)} queries punya minimal 1 doc relevan")
+    print(f"Saved to: {DEFAULT_QRELS_PATH}")
+
+
+def run_ranking(
+    queries: list[dict],
+    batch_size: int | None = None,
+    verbose: bool = False,
+    qrels_file: Path | None = None,
+    output_path: Path = DEFAULT_RANKING_OUTPUT,
+) -> dict:
+    """Compute NDCG/MRR/Recall@K dari qrels yang sudah ada."""
+    import json  # noqa: PLC0415
+    from datetime import datetime, timezone  # noqa: PLC0415
+
+    from src.agents.graph import build_phase3_graph  # noqa: PLC0415
+    from src.evaluation.qrels_generator import load_qrels  # noqa: PLC0415
+    from src.evaluation.ranking_metrics import compute_ranking_metrics  # noqa: PLC0415
+
+    qrels_path = qrels_file or DEFAULT_QRELS_PATH
+    qrels = load_qrels(qrels_path)
+    if not qrels:
+        print(f"ERROR: qrels.json tidak ditemukan di {qrels_path}")
+        print("  Jalankan dulu: python scripts/evaluate_retrieval.py --generate-qrels")
+        sys.exit(1)
+
+    print("Building Phase 3 graph...")
+    graph = build_phase3_graph()
+
+    target_queries = queries[:batch_size] if batch_size is not None else queries
+    run_docs: dict[str, list[dict]] = {}
+
+    for i, eq in enumerate(target_queries, start=1):
+        qid = eq["id"]
+        print(f"  [{i:02d}/{len(target_queries)}] {qid}...", end="", flush=True)
+        try:
+            result = graph.invoke(
+                {
+                    "query": eq["query"],
+                    "conversation_history": [],
+                    "crag_iterations": 0,
+                    "crag_grade": None,
+                },
+                config={"configurable": {"thread_id": f"ranking-{qid}"}},
+            )
+            run_docs[qid] = result.get("retrieved_docs") or []
+            print(f" {len(run_docs[qid])} docs")
+        except Exception as exc:  # noqa: BLE001
+            print(f" ERROR: {exc}")
+            run_docs[qid] = []
+
+    metrics = compute_ranking_metrics(qrels=qrels, run_docs=run_docs)
+
+    print()
+    print("=" * 40)
+    print("Ranking Metrics")
+    print("=" * 40)
+    for k, v in metrics.items():
+        print(f"  {k:12s}: {v:.4f}")
+
+    # Simpan ke file
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "run_at": datetime.now(timezone.utc).isoformat(),
+        "query_count": len(run_docs),
+        "metrics": metrics,
+    }
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    print(f"Results saved to: {output_path}")
+
+    return metrics
+
+
+# ---------------------------------------------------------------------------
 # CLI Entry Point
 # ---------------------------------------------------------------------------
 
@@ -406,6 +511,23 @@ def main() -> None:
         default=None,
         help="Path ke golden answers JSON kustom",
     )
+    # Ranking metrics flags
+    parser.add_argument(
+        "--generate-qrels",
+        action="store_true",
+        help="Generate qrels via LLM judge (sekali, hasilnya reusable)",
+    )
+    parser.add_argument(
+        "--ranking",
+        action="store_true",
+        help="Hitung NDCG/MRR/Recall@K dari qrels yang sudah ada",
+    )
+    parser.add_argument(
+        "--qrels-file",
+        type=Path,
+        default=None,
+        help="Path ke qrels JSON kustom (default: data/eval/qrels.json)",
+    )
     args = parser.parse_args()
 
     queries = load_eval_queries(EVAL_QUERIES_PATH)
@@ -414,6 +536,15 @@ def main() -> None:
         run_dry_run(queries)
     elif args.generate_golden:
         run_generate_golden(queries, verbose=args.verbose)
+    elif args.generate_qrels:
+        run_generate_qrels(queries, batch_size=args.batch_size, verbose=args.verbose)
+    elif args.ranking:
+        run_ranking(
+            queries=queries,
+            batch_size=args.batch_size,
+            verbose=args.verbose,
+            qrels_file=args.qrels_file,
+        )
     elif args.ragas:
         run_ragas(
             queries=queries,

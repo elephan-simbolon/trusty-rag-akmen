@@ -22,15 +22,7 @@ def enrich_metadata(
     section_path: str,
     content_type: str | None = None,
 ) -> dict:
-    """
-    Enrich a chunk with all required metadata fields.
-    Extracts page_start/page_end from inline markers.
-    Classifies content type if not provided.
-    Strips page markers from text before returning.
-
-    Returns: dict with 'text' (clean, no markers) and 'metadata' keys.
-    """
-    # Extract page range from markers
+    """Enrich chunk with metadata fields; extracts page range from markers and strips them."""
     page_start, page_end = extract_page_range(chunk_text)
     if page_start == 0:
         logger.warning(
@@ -38,10 +30,8 @@ def enrich_metadata(
             "Citation page numbers will be inaccurate."
         )
 
-    # Clean text for embedding
     clean_text = strip_page_markers(chunk_text)
 
-    # Classify content type if not provided
     if content_type is None:
         content_type = classify_element(clean_text).value
 
@@ -61,10 +51,7 @@ def enrich_metadata(
 
 
 def validate_metadata(chunk: dict) -> list[str]:
-    """
-    Validate that a chunk has all required metadata fields.
-    Returns list of missing field names (empty = valid).
-    """
+    """Return list of missing required metadata field names (empty list = valid)."""
     metadata = chunk.get("metadata", {})
     missing = [f for f in REQUIRED_METADATA_FIELDS if f not in metadata or metadata[f] is None]
     return missing

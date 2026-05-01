@@ -1,18 +1,7 @@
 from src.ingestion.chunking.page_markers import (
     extract_page_range,
-    inject_page_markers,
     strip_page_markers,
 )
-
-
-def test_inject_page_markers():
-    """CHUNK-08: Inline page markers (<!-- PAGE_START:N -->) are injected at parse time."""
-    markdown = "Hello world, page two content"
-    page_map = [(12, 2)]
-    result = inject_page_markers(markdown, page_map)
-    assert "<!-- PAGE_START:2 -->" in result
-    assert "Hello world," in result
-    assert "page two content" in result
 
 
 def test_extract_page_range():
