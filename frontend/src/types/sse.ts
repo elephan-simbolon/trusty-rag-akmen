@@ -8,6 +8,7 @@ export interface Citation {
   section_path: string;
   formatted: string;
   author?: string;
+  source_domain?: string;  // 'consulting' | 'accounting' — RETR-03
 }
 
 export interface ChatTurn {

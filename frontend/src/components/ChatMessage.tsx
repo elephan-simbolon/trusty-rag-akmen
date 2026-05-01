@@ -16,9 +16,9 @@ function renderWithCitations(
   openCitationsRef?: React.MutableRefObject<(() => void) | null>,
 ): React.ReactNode {
   if (!citations.length) return text;
-  const parts = text.split(/(\[\d+\]|\[Sumber\s+\d+[^\]]*\])/g);
+  const parts = text.split(/(\[\d+\]|\[Sumber\s+\d+[^\]]*\]|\[Kerangka\s+\d+[^\]]*\])/g);
   return parts.map((part, i) => {
-    const numMatch = part.match(/^\[(?:Sumber\s+)?(\d+)/);
+    const numMatch = part.match(/^\[(?:(?:Sumber|Kerangka)\s+)?(\d+)/);
     if (numMatch) {
       const n = parseInt(numMatch[1]);
       if (n < 1 || n > citations.length) return <span key={i}>{part}</span>;
